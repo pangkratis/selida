@@ -124,12 +124,27 @@ except where noted; listed here so they don't get lost.
 - Biblionet's `Category` field is effectively dead data — it cannot drive browsing or recommendations
 - This is WHY the genre taxonomy (migration_06) exists; do not build features on books.categories
 
-### 7. Subcategory sync is only 7.3% complete
+### 7. Subcategory sync is only 7.3% complete (as of last measurement — throughput improved 2026-09-19)
 - Only **1,378 of 18,753 books** have `syncedSub = true`
 - 441 distinct subject headings from 2,586 book↔subject links
 - Onboarding chips (`get_popular_subcategories`) are therefore driven by 7% of the catalog
 - Finishing the sync via `syncSubcategories()` would convert a large share of the 68% LLM
   fall-through into deterministic genre matches — highest-leverage data task available
+- **Throughput fix (2026-09-19)**: confirmed via Biblionet's own docs (`https://biblionet.gr/webservice/`)
+  that subject data can ONLY be fetched one book per request — no batch endpoint, no reverse
+  "books by subject" lookup exists (`get_subject` only returns metadata about one subject, not
+  which books have it). Don't re-investigate this without new information — see
+  `project-state.md` → "Biblionet API shape, confirmed 2026-09-19". Given that hard constraint,
+  `syncSubcategories()` was changed to get more done per day within the account's 1000
+  requests/day cap: `SUB_BATCH` raised 100→900 (was only using 10% of the daily quota per run),
+  results now ordered by `popularityCount DESC` (spend requests on books people actually look at
+  first, not arbitrary DB order), and the loop stops early after 5 consecutive failures instead of
+  blindly burning through the rest of the batch once something systemic (most likely the daily
+  quota) has been hit — surfaced in the admin UI as "stopped early, likely hit today's rate limit."
+- **Along the way, found `get_title` uses the wrong parameter name** (`titleid` instead of
+  `title`) in `biblionet-api.ts`'s `getBiblionetBookById()` (dead code) and
+  `app/catalog-ingestion.tsx`'s admin "Book Lookup" box — **left unfixed, user confirmed they
+  don't use that feature**. Don't fix this without checking with the user first, per that note.
 
 ### 8. language stored as Greek words, not ISO codes — BLOCKS Google Books
 - Actual values: `ελληνικά` (952), `αγγλικά` (19), `γαλλικά` (7), `ιταλικά` (2), `''` (20)
