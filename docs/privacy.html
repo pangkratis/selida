@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Selida Privacy Policy</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  :root {
+    --bg: #fbf7f0;
+    --surface: #ffffff;
+    --surface-2: #f3ede1;
+    --text: #2d3a2d;
+    --text-secondary: #5b6b5b;
+    --border: #e6ede6;
+    --accent: #2d8fd5;
+    --accent-soft: rgba(45, 143, 213, 0.1);
+    --accent-soft-strong: rgba(45, 143, 213, 0.18);
+    --mono-tint: #7a8a7a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1c18;
+      --surface: #2c2820;
+      --surface-2: #262319;
+      --text: #f2f9f3;
+      --text-secondary: #b7c2b7;
+      --border: #3d4a3d;
+      --accent: #6bb3ea;
+      --accent-soft: rgba(107, 179, 234, 0.14);
+      --accent-soft-strong: rgba(107, 179, 234, 0.22);
+      --mono-tint: #8fa08f;
+    }
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nunito', ui-rounded, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .wrap {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  header.doc-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    padding-bottom: 40px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mark { width: 52px; height: 34px; }
+  h1 {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .meta {
+    font-size: 12.5px;
+    color: var(--mono-tint);
+    letter-spacing: 0.02em;
+  }
+  .lede {
+    max-width: 52ch;
+    color: var(--text-secondary);
+    font-size: 15px;
+    margin: 4px 0 0;
+  }
+
+  nav.toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 48px;
+  }
+  nav.toc .toc-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    display: block;
+  }
+  nav.toc ol {
+    margin: 0;
+    padding: 0 0 0 1.1em;
+    columns: 2;
+    column-gap: 24px;
+  }
+  nav.toc li { margin-bottom: 6px; break-inside: avoid; }
+  nav.toc a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); text-decoration: underline; }
+
+  section {
+    margin-bottom: 40px;
+    scroll-margin-top: 24px;
+  }
+  section h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  section h2 .num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  section p { margin: 0 0 12px; font-size: 15px; }
+  section p:last-child { margin-bottom: 0; }
+  section ul { margin: 0 0 12px; padding-left: 1.2em; font-size: 15px; }
+  section li { margin-bottom: 6px; }
+  section li:last-child { margin-bottom: 0; }
+  strong { font-weight: 700; }
+  a { color: var(--accent); }
+
+  .callout {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-soft-strong);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .callout .callout-label {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .callout p { margin: 0; color: var(--text); }
+
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 8px 0 16px;
+  }
+  table.data-table th, table.data-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.data-table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 700;
+  }
+  .table-wrap { overflow-x: auto; }
+
+  footer.doc-foot {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  @media (max-width: 480px) {
+    nav.toc ol { columns: 1; }
+    h1 { font-size: 25px; }
+  }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="doc-head">
+    <svg class="mark" viewBox="0 0 300 180" aria-hidden="true">
+      <g transform="translate(150,158)">
+        <polygon points="0,0 34,0 23.8,-104 10.2,-104" fill="#3a403c" transform="rotate(-85) translate(-17,-126)"/>
+        <polygon points="0,0 34,0 23.8,-104 10.2,-104" fill="#3a403c" transform="rotate(85) translate(-17,-126)"/>
+        <polygon points="0,0 34,0 23.8,-104 10.2,-104" fill="#2d8fd5" transform="rotate(-62) translate(-17,-126)"/>
+        <polygon points="0,0 34,0 23.8,-104 10.2,-104" fill="#34c759" transform="rotate(-31) translate(-17,-126)"/>
+        <polygon points="0,0 34,0 23.8,-104 10.2,-104" fill="#f7c81f" transform="translate(-17,-126)"/>
+        <polygon points="0,0 34,0 23.8,-104 10.2,-104" fill="#c07ed6" transform="rotate(31) translate(-17,-126)"/>
+        <polygon points="0,0 34,0 23.8,-104 10.2,-104" fill="#f25577" transform="rotate(62) translate(-17,-126)"/>
+      </g>
+    </svg>
+    <h1>Privacy Policy</h1>
+    <p class="lede">This explains what Selida collects when you track your reading, why, and how to control or remove it.</p>
+    <p class="meta mono">Effective 19 September 2026</p>
+  </header>
+
+  <nav class="toc" aria-label="Table of contents">
+    <span class="toc-label">On this page</span>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#collect">Information we collect</a></li>
+      <li><a href="#use">How we use it</a></li>
+      <li><a href="#storage">Where your data lives</a></li>
+      <li><a href="#third-parties">Third-party services</a></li>
+      <li><a href="#sharing">Data sharing</a></li>
+      <li><a href="#rights">Your rights &amp; controls</a></li>
+      <li><a href="#retention">Data retention</a></li>
+      <li><a href="#children">Children's privacy</a></li>
+      <li><a href="#transfers">International transfers</a></li>
+      <li><a href="#changes">Changes to this policy</a></li>
+      <li><a href="#contact">Contact us</a></li>
+    </ol>
+  </nav>
+
+  <section id="overview">
+    <h2><span class="num">01</span>Overview</h2>
+    <p>Selida is a book discovery and reading-tracker app. To do its job — tracking what you're reading, timing your sessions, and recommending books you'll like — it needs to store some information about your account and your reading activity. This policy covers exactly what that is, why we keep it, and what you can do about it.</p>
+    <div class="callout">
+      <span class="callout-label">In short</span>
+      <p>We collect your account details and your own reading activity. We don't run ads, don't use analytics or tracking SDKs, and don't sell data to anyone.</p>
+    </div>
+  </section>
+
+  <section id="collect">
+    <h2><span class="num">02</span>Information we collect</h2>
+    <p>We collect information in three categories, all tied to your account:</p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Category</th><th>What it includes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Account information</td>
+            <td>Email address, password (stored securely by our authentication provider — we never see it in plain text), display name, preferred language, and country/catalog preference.</td>
+          </tr>
+          <tr>
+            <td>Reading activity</td>
+            <td>Books you add to your reading list, their status (wishlist, reading, completed), reading progress, and reading session timestamps and durations.</td>
+          </tr>
+          <tr>
+            <td>App activity</td>
+            <td>Actions like viewing a book's details or adding it to your wishlist, used to power recommendations. Optional feedback you choose to submit through the app.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>We do not request access to your camera, photo library, contacts, or location — Selida doesn't use any of them.</p>
+  </section>
+
+  <section id="use">
+    <h2><span class="num">03</span>How we use it</h2>
+    <ul>
+      <li>To create and maintain your account, and keep you signed in.</li>
+      <li>To track your reading progress, timed sessions, and reading history across your devices.</li>
+      <li>To personalize book recommendations based on what you've read, saved, or shown interest in.</li>
+      <li>To respond to feedback you submit through the app.</li>
+      <li>To keep the service reliable and secure.</li>
+    </ul>
+  </section>
+
+  <section id="storage">
+    <h2><span class="num">04</span>Where your data lives</h2>
+    <p>Your data is stored with <strong>Supabase</strong>, our backend and database provider, hosted on infrastructure in the <strong>European Union (Stockholm, Sweden)</strong>. Access to your data is restricted so that only you can read or modify your own account, reading list, and activity — this is enforced at the database level, not just in the app.</p>
+  </section>
+
+  <section id="third-parties">
+    <h2><span class="num">05</span>Third-party services</h2>
+    <p>Selida works with a small, deliberately short list of outside services:</p>
+    <ul>
+      <li><strong>Supabase</strong> — authentication, database, and backend hosting, as described above.</li>
+      <li><strong>Biblionet</strong> — a Greek book-catalog data source. Selida queries Biblionet to look up book information (titles, authors, descriptions, subjects); this is a one-way lookup of public catalog data — your personal account information and reading activity are never sent to Biblionet.</li>
+    </ul>
+    <div class="callout">
+      <span class="callout-label">In short</span>
+      <p>No analytics SDKs, no advertising networks, no crash-reporting trackers, no social-login data sharing. Selida doesn't include any of them.</p>
+    </div>
+  </section>
+
+  <section id="sharing">
+    <h2><span class="num">06</span>Data sharing</h2>
+    <p>We do not sell your personal information. We do not share it with third parties for advertising or marketing purposes. Your reading activity and account details are used only to operate Selida itself.</p>
+  </section>
+
+  <section id="rights">
+    <h2><span class="num">07</span>Your rights &amp; controls</h2>
+    <ul>
+      <li><strong>Access and update</strong> your display name, language, and country preference at any time from Settings.</li>
+      <li><strong>Delete your account</strong> directly in the app — Settings → Delete Account. This permanently removes your profile, reading list, reading sessions, and activity history. It cannot be undone.</li>
+      <li><strong>Export or ask about your data</strong> by contacting us (below) if you'd like a copy of what we hold.</li>
+    </ul>
+    <div class="callout">
+      <span class="callout-label">In short</span>
+      <p>Deleting your account in Settings removes everything — there's no separate request process needed.</p>
+    </div>
+  </section>
+
+  <section id="retention">
+    <h2><span class="num">08</span>Data retention</h2>
+    <p>We keep your account and reading data for as long as your account exists, so that your reading history and recommendations stay intact between sessions. When you delete your account, your data is removed immediately and permanently.</p>
+  </section>
+
+  <section id="children">
+    <h2><span class="num">09</span>Children's privacy</h2>
+    <p>Selida is not directed at children under 13, and we do not knowingly collect personal information from children under 13. If you believe a child has created an account, contact us and we'll remove it.</p>
+  </section>
+
+  <section id="transfers">
+    <h2><span class="num">10</span>International transfers</h2>
+    <p>Selida's infrastructure is based in the European Union. If you use Selida from outside the EU, your information will be transferred to and processed in the EU, under the safeguards our infrastructure provider maintains.</p>
+  </section>
+
+  <section id="changes">
+    <h2><span class="num">11</span>Changes to this policy</h2>
+    <p>If we make material changes to this policy, we'll update the effective date at the top of this page. Continuing to use Selida after a change means you accept the update.</p>
+  </section>
+
+  <section id="contact">
+    <h2><span class="num">12</span>Contact us</h2>
+    <p>Questions about this policy or your data? Reach us at <a href="mailto:hello@selida.app">hello@selida.app</a>.</p>
+  </section>
+
+  <footer class="doc-foot">
+    <p class="mono">Selida — Privacy Policy — v1.0</p>
+  </footer>
+
+</div>
+</body>
+</html>
