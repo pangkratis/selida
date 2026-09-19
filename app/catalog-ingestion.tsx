@@ -228,7 +228,7 @@ export default function CatalogIngestionScreen() {
     readCursor().then(cursor => {
       setIngestion(prev => ({
         ...prev,
-        result: prev.result ?? { cursor, count: 0, next: cursor, done: false },
+        result: prev.result ?? { cursor, count: 0, newCount: 0, updatedCount: 0, next: cursor, done: false },
       }));
     });
     fetchLatestBooks();
@@ -257,7 +257,7 @@ export default function CatalogIngestionScreen() {
   const handleReset = async () => {
     await resetCursor();
     const cursor = await readCursor();
-    setIngestion({ status: 'idle', result: { cursor, count: 0, next: cursor, done: false }, totalSaved: 0 });
+    setIngestion({ status: 'idle', result: { cursor, count: 0, newCount: 0, updatedCount: 0, next: cursor, done: false }, totalSaved: 0 });
   };
 
   const handleRun = async () => {
@@ -373,7 +373,7 @@ export default function CatalogIngestionScreen() {
                 ) : (
                   <ThemedText style={[styles.resultText, { color: theme.secondary, fontFamily: roundedFont('500') }]}>
                     {ingestion.result!.count > 0
-                      ? `Saved ${ingestion.result!.count} books`
+                      ? `Saved ${ingestion.result!.count} books (${ingestion.result!.newCount} new, ${ingestion.result!.updatedCount} already known)`
                       : 'No books for this period — advancing'}
                     {ingestion.result!.done ? '  ·  Catalog complete!' : ''}
                   </ThemedText>

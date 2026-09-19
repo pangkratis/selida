@@ -122,6 +122,8 @@ function mapItem(item: any): Record<string, any> {
 export interface IngestionResult {
     cursor: Cursor;
     count: number;
+    newCount: number;
+    updatedCount: number;
     next: Cursor | null;
     done: boolean;
     error?: string;
@@ -148,11 +150,23 @@ export async function runCatalogIngestion(): Promise<IngestionResult | null> {
         const saveable = items.filter(item => !!item.CoverImage && !!item.TitlesID && !!item.Writer && !!item.Summary);
         console.log(`[Ingestion] ${saveable.length}/${items.length} have cover + TitlesID + author + description`);
 
+        let newCount = 0;
+        let updatedCount = 0;
+
         if (saveable.length > 0) {
+            const biblionetIds = saveable.map(item => String(item.TitlesID));
+            const { data: existing } = await supabase
+                .from('books')
+                .select('biblionetId')
+                .in('biblionetId', biblionetIds);
+            const existingIds = new Set((existing ?? []).map((r: any) => String(r.biblionetId)));
+            newCount = biblionetIds.filter(id => !existingIds.has(id)).length;
+            updatedCount = saveable.length - newCount;
+
             const rows = saveable.map(mapItem);
             const { error } = await supabase.from('books').upsert(rows, { onConflict: 'biblionetId' });
             if (error) console.error('[Ingestion] Supabase upsert error:', error);
-            else console.log(`[Ingestion] Saved ${saveable.length} books to Supabase`);
+            else console.log(`[Ingestion] Saved ${saveable.length} books to Supabase (${newCount} new, ${updatedCount} already known)`);
         }
 
         const next = advance(cursor, items.length > 0);
@@ -163,10 +177,10 @@ export async function runCatalogIngestion(): Promise<IngestionResult | null> {
             await clearCursor();
         }
 
-        return { cursor, count: saveable.length, next, done: next === null };
+        return { cursor, count: saveable.length, newCount, updatedCount, next, done: next === null };
     } catch (err) {
         console.error('[Ingestion] Error:', err);
-        return { cursor, count: 0, next: cursor, done: false, error: String(err) };
+        return { cursor, count: 0, newCount: 0, updatedCount: 0, next: cursor, done: false, error: String(err) };
     }
 }
 
