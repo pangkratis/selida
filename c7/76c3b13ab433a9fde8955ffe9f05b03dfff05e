@@ -1,0 +1,191 @@
+app/_layout.tsx
+  s_d6d65f87308408::t_f2b30d9e66d31d 1-167
+components/animated-logo.tsx
+  s_d6d65f87308408::t_4f340576e3385e 1-212
+supabase/.gitignore
+  s_d6d65f87308408::t_ff74f9f831ac88 1-8
+supabase/config.toml
+  s_d6d65f87308408::t_a88f15525b66fd 1-415
+.claude/agents/architect.md
+  s_d6d65f87308408::t_7d73f2abc35291 1-89
+.claude/agents/code-quality.md
+  s_d6d65f87308408::t_c3ff549c0f3f02 1-71
+.claude/agents/firebase-data.md
+  s_d6d65f87308408::t_ee18ba77330c57 1-140
+.claude/agents/testing.md
+  s_d6d65f87308408::t_c74b8f50ddb9d7 1-108
+.claude/agents/ui-visual.md
+  s_d6d65f87308408::t_e58c9630edcb25 1-138
+.claude/memory/issues-opportunities.md
+  s_d6d65f87308408::t_90fc918ad19e76 1-165
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_b1f5c4885b772e 1-837
+.gitignore
+  s_d6d65f87308408::t_dc324bccde394b 1-48
+.vscode/extensions.json
+  s_d6d65f87308408::t_e6802564a53178 1
+.vscode/settings.json
+  s_d6d65f87308408::t_be2a0473c62d36 1-7
+CLAUDE.md
+  s_d6d65f87308408::t_21e57e378c37d2 1-85
+README.md
+  s_d6d65f87308408::t_a57197eb092e47 1-50
+app.json
+  s_d6d65f87308408::t_bc7ebfefb24293 1-52
+app/(auth)/_layout.tsx
+  s_d6d65f87308408::t_d547f7b91aad7e 1-5
+app/(auth)/login.tsx
+  s_d6d65f87308408::t_baeeb06846d735 1-254
+app/(auth)/signup.tsx
+  s_d6d65f87308408::t_d27c148fec0488 1-255
+app/(tabs)/_layout.tsx
+  s_d6d65f87308408::t_b10975d2ff927e 1-181
+app/(tabs)/explore.tsx
+  s_d6d65f87308408::t_3c9b55391b57d5 1-374
+app/(tabs)/index.tsx
+  s_d6d65f87308408::t_814d3383098ed0 1-922
+app/(tabs)/profile.tsx
+  s_d6d65f87308408::t_ef2fb9ad52c90f 1-705
+app/book-details.tsx
+  s_d6d65f87308408::t_68cdcbfd04de0c 1-514
+app/book-list.tsx
+  s_d6d65f87308408::t_7d2dbfdfd7c5ef 1-257
+app/books-grid.tsx
+  s_d6d65f87308408::t_379f24b1c2e63f 1-204
+app/catalog-ingestion.tsx
+  s_d6d65f87308408::t_28c38756d434af 1-767
+app/ctx.tsx
+  s_d6d65f87308408::t_baae7bb5e1e6d9 1-149
+app/modal.tsx
+  s_d6d65f87308408::t_dd260e8aae19df 1-29
+app/onboarding.tsx
+  s_d6d65f87308408::t_2273330b98c50e 1-536
+app/settings.tsx
+  s_d6d65f87308408::t_eb2f6e137fd0d0 1-459
+components/auth-background-circles.tsx
+  s_d6d65f87308408::t_9f6bd016bd5e6e 1-40
+components/circular-progress.tsx
+  s_d6d65f87308408::t_93a04343f8308f 1-77
+components/compact-book-grid.tsx
+  s_d6d65f87308408::t_1df4f2eb166918 1-107
+components/country-picker.tsx
+  s_d6d65f87308408::t_a16360c5b6e33d 1-182
+components/external-link.tsx
+  s_d6d65f87308408::t_6e8a6d4f93eb71 1-25
+components/feedback-button.tsx
+  s_d6d65f87308408::t_d1e9037d2c37ff 1-261
+components/floating-field.tsx
+  s_d6d65f87308408::t_ecd344d7f95fe6 1-114
+components/haptic-tab.tsx
+  s_d6d65f87308408::t_10feb0c438e704 1-18
+components/hello-wave.tsx
+  s_d6d65f87308408::t_a3e5bdeea39cc2 1-19
+components/horizontal-book-shelf.tsx
+  s_d6d65f87308408::t_8afaf39b42e8d7 1-139
+components/page-header.tsx
+  s_d6d65f87308408::t_ce70cc0437ebf3 1-54
+components/parallax-scroll-view.tsx
+  s_d6d65f87308408::t_78011e9059fa22 1-79
+components/splash-overlay.tsx
+  s_d6d65f87308408::t_b78c27abb30ded 1-62
+components/themed-text.tsx
+  s_d6d65f87308408::t_0c5a08d77c7af6 1-73
+components/themed-view.tsx
+  s_d6d65f87308408::t_4a09d552fb2c69 1-14
+components/ui/collapsible.tsx
+  s_d6d65f87308408::t_ea06690e4211ba 1-45
+components/ui/icon-symbol.ios.tsx
+  s_d6d65f87308408::t_cf09df2152fb2b 1-32
+components/ui/icon-symbol.tsx
+  s_d6d65f87308408::t_4a0b6805a2445c 1-40
+constants/countries.ts
+  s_d6d65f87308408::t_586f024155a5ed 1-47
+constants/tab-bar.ts
+  s_d6d65f87308408::t_cd1431ed99f612 1-37
+constants/theme.ts
+  s_d6d65f87308408::t_eb3894a4a97541 1-264
+constants/types.ts
+  s_d6d65f87308408::t_e15f673532eff1 1-37
+eslint.config.js
+  s_d6d65f87308408::t_2e948f9b72540e 1-10
+hooks/home-scroll-context.ts
+  s_d6d65f87308408::t_04622f586b4dfa 1-15
+hooks/use-color-scheme.ts
+  s_d6d65f87308408::t_c094ccc2a74375 1
+hooks/use-color-scheme.web.ts
+  s_d6d65f87308408::t_b284b8370db0a0 1-21
+hooks/use-storage-state.ts
+  s_d6d65f87308408::t_3ae9f3ba2351d4 1-68
+hooks/use-theme-color.ts
+  s_d6d65f87308408::t_103f690ee30df1 1-21
+locales/el.ts
+  s_d6d65f87308408::t_6bab47c42e81fe 1-149
+locales/en.ts
+  s_d6d65f87308408::t_640738091c6ecc 1-150
+package-lock.json
+  s_d6d65f87308408::t_53c616f70f31b0 1-14131
+package.json
+  s_d6d65f87308408::t_9ad53bc8b079d4 1-59
+scripts/reset-project.js
+  s_d6d65f87308408::t_8dd462b5c7b3ac 1-112
+services/biblionet-api.ts
+  s_d6d65f87308408::t_f095def9506b7b 1-98
+services/bookStats.ts
+  s_d6d65f87308408::t_4b162bd09ab300 1-15
+services/catalog-ingestion.ts
+  s_d6d65f87308408::t_7c0ed54d0242cb 1-258
+services/i18n.ts
+  s_d6d65f87308408::t_009dfdca0e2760 1-31
+services/readingSessions.ts
+  s_d6d65f87308408::t_207a377ef0e44a 1-81
+services/recommendations.ts
+  s_d6d65f87308408::t_df2b3106cd864c 1-350
+services/supabaseConfig.ts
+  s_d6d65f87308408::t_4b1eb846ba2283 1-14
+services/userActivity.ts
+  s_d6d65f87308408::t_a551cd7de35e4b 1-24
+sql/get_recommendations.sql
+  s_d6d65f87308408::t_9158153f740ba0 1-173
+sql/migration_01_search.sql
+  s_d6d65f87308408::t_10995fdb1b2ec5 1-72
+sql/migration_02_normalize.sql
+  s_d6d65f87308408::t_403b091f74b0ed 1-182
+sql/migration_03_triggers.sql
+  s_d6d65f87308408::t_fd411557ab0694 1-146
+sql/migration_04_schema_additions.sql
+  s_d6d65f87308408::t_a4ec8abc9e9289 1-43
+sql/migration_05_fix_trigger_security.sql
+  s_d6d65f87308408::t_14787d8175e19d 1-138
+sql/migration_06_genres.sql
+  s_d6d65f87308408::t_c2cc1e65aec4d6 1-536
+sql/migration_07_fix_backfill.sql
+  s_d6d65f87308408::t_8a13166fc58e10 1-95
+sql/migration_08_genre_observability.sql
+  s_d6d65f87308408::t_4565dd9266c39a 1-114
+sql/migration_09_readinglist_replica_identity.sql
+  s_d6d65f87308408::t_02a5794b6c7535 1-27
+sql/recommendation_indexes.sql
+  s_d6d65f87308408::t_30e88a277c207c 1-28
+sql/schema.sql
+  s_d6d65f87308408::t_f190b1e28b4ad6 1-224
+supabase/functions/biblionet-proxy/index.ts
+  s_d6d65f87308408::t_bda67532b6502a 1-60
+tsconfig.json
+  s_d6d65f87308408::t_b2a36f5a546844 1-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c776c3b13ab433a9fde8955ffe9f05b03dfff05e",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
