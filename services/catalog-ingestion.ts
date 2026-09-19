@@ -1,12 +1,13 @@
 /**
  * DEV-ONLY catalog ingestion service.
  * Crawls the Biblionet webservice by year/month/page and writes books to Supabase.
- * The cursor (year/month/page) persists across app restarts via SecureStore.
+ * The cursor (year/month/page) persists in the `ingestion_cursor` table — a
+ * single row, so progress is visible from anywhere (e.g. the Supabase
+ * dashboard), not just from the one device that last ran it.
  * Uses Supabase upsert so 100 books = 1 round-trip.
  * Guarded by __DEV__ — never runs in production builds.
  */
 
-import * as SecureStore from 'expo-secure-store';
 import { supabase } from './supabaseConfig';
 
 /* ── Config ──────────────────────────────────────────────────────── */
@@ -16,7 +17,7 @@ const COVER_BASE = 'https://www.biblionet.gr';
 const PER_PAGE = 100;
 const STOP_YEAR = 2015;
 
-const CURSOR_KEY = 'catalog_ingestion_cursor';
+const CURSOR_ROW_ID = 'catalog';
 const START_CURSOR = { year: 2026, month: 4, page: 1 };
 
 /* ── Cursor helpers ──────────────────────────────────────────────── */
@@ -24,20 +25,23 @@ const START_CURSOR = { year: 2026, month: 4, page: 1 };
 interface Cursor { year: number; month: number; page: number; }
 
 async function getCursor(): Promise<Cursor> {
-    try {
-        const raw = await SecureStore.getItemAsync(CURSOR_KEY);
-        return raw ? JSON.parse(raw) : { ...START_CURSOR };
-    } catch {
-        return { ...START_CURSOR };
-    }
+    const { data } = await supabase
+        .from('ingestion_cursor')
+        .select('year, month, page')
+        .eq('id', CURSOR_ROW_ID)
+        .maybeSingle();
+    return data ? { year: data.year, month: data.month, page: data.page } : { ...START_CURSOR };
 }
 
 async function saveCursor(c: Cursor): Promise<void> {
-    await SecureStore.setItemAsync(CURSOR_KEY, JSON.stringify(c));
+    await supabase.from('ingestion_cursor').upsert(
+        { id: CURSOR_ROW_ID, year: c.year, month: c.month, page: c.page, updatedAt: new Date().toISOString() },
+        { onConflict: 'id' }
+    );
 }
 
 async function clearCursor(): Promise<void> {
-    await SecureStore.deleteItemAsync(CURSOR_KEY);
+    await supabase.from('ingestion_cursor').delete().eq('id', CURSOR_ROW_ID);
 }
 
 function advance(c: Cursor, hasResults: boolean): Cursor | null {
@@ -124,7 +128,7 @@ export async function readCursor(): Promise<Cursor> {
 }
 
 export async function resetCursor(): Promise<void> {
-    await SecureStore.setItemAsync(CURSOR_KEY, JSON.stringify({ ...START_CURSOR }));
+    await saveCursor({ ...START_CURSOR });
 }
 
 export async function runCatalogIngestion(): Promise<IngestionResult | null> {
