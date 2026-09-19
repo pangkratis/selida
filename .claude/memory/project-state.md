@@ -583,6 +583,37 @@ throughout, same convention as the Profile and Onboarding rewrites this session)
 - AppUser: uid, email, displayName, language, country, catalogPreference, preferredSubcategories, onboardingComplete, isAdmin
 - Updates lastLoginAt on login
 
+### Account deletion (added 2026-09-19) — App Store/Play Store compliance requirement
+Apps with account creation must let users delete their account+data in-app (Apple guideline
+5.1.1(v); Google Play has an equivalent). Didn't exist before this — was the one confirmed hard
+blocker found during pre-launch review, everything else being either already-done or
+administrative/non-code (privacy policy, EAS signing, store listings).
+- **`supabase/functions/delete-account/index.ts`** — new Edge Function. Verifies the caller's
+  identity from their OWN JWT via a client built with the `anon` key + the incoming Authorization
+  header (`callerClient.auth.getUser()`) — **never trusts a client-supplied user id**, so a user
+  can only ever delete themselves. Actually deleting the auth user needs
+  `adminClient.auth.admin.deleteUser(user.id)` with the **service_role** key — unlike
+  `biblionet-proxy`, no manual `supabase secrets set` was needed for this, since
+  `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY` are auto-injected into every Edge
+  Function's environment.
+- **No manual per-table cleanup needed** — confirmed via `pg_constraint`/`information_schema`
+  before writing any code that `auth.users → public.users → readingList/readingSessions/
+  userActivity` are ALL `ON DELETE CASCADE` (all three of those tables' `userId` FK, plus
+  `public.users.id`'s own FK to `auth.users`). Deleting the auth user alone fully cleans up
+  everything. `feedback` has no `userId` column at all, so nothing to clean up there.
+  **If a new user-owned table is ever added without a cascading FK to `users`, this silently stops
+  fully cleaning up on deletion** — worth checking this function's assumption still holds whenever
+  a new per-user table is introduced.
+- **UI**: `app/settings.tsx`, Session section, a destructive Row below Sign Out
+  (`settingsDeleteAccount`), gated behind an `Alert.alert` confirmation
+  (`settingsDeleteAccountConfirmTitle`/`Message`) before calling
+  `supabase.functions.invoke('delete-account')`, then `signOut()` on success (clears local
+  session, triggers `_layout.tsx`'s normal auth-redirect to login). New EN/EL locale keys added
+  for all of this.
+- **Verified end-to-end with a real throwaway account** before considering this done: created a
+  profile + a `readingList` row, called the function, confirmed both were gone and the account
+  could no longer log in (`invalid_credentials`) — not just that the function returned success.
+
 ---
 
 ## Branding & Splash (added 2026-09-02)
