@@ -80,16 +80,18 @@ same day in a follow-up pass via `sql/migration_14_lock_down_internal_functions.
   authenticated-as-someone-else calls both correctly rejected.
 - **FIXED**: pinned `search_path = public` on `create_user_profile` and `fn_books_search_text`
   (previously mutable — a theoretical search-path-hijack vector for `SECURITY DEFINER` functions).
-- **Still open, dashboard-only**: "Leaked Password Protection" toggle (Authentication → Policies)
-  — confirmed via `supabase config pull` that this setting isn't represented in the CLI's
+- **Deferred by user 2026-09-19 — requires a Supabase Pro plan upgrade**: "Leaked Password
+  Protection" toggle (Authentication → Policies) turned out to be plan-gated, not just a free
+  dashboard toggle — user will revisit later, this is a cost/plan decision, not a code task.
+  Confirmed via `supabase config pull` that this setting isn't represented in the CLI's
   `config.toml` schema at all (a full pull of real remote auth/db/storage config came back with no
-  trace of it), so it can't be scripted from here. Genuinely needs a manual dashboard visit — 2026-
-  09-19's `supabase config pull` was otherwise useful independent of this: it turned up that
-  `supabase/config.toml` was still `supabase init`'s generic template (localhost `site_url`, MFA
-  disabled, default pooler sizes) rather than the project's real settings — now synced, which
-  matters because `supabase config push` writes the WHOLE file; pushing the stale template would
-  have silently reset real settings back to generic defaults. Don't run `config push` without
-  pulling first if this file is ever touched again.
+  trace of it), so it couldn't have been scripted from here even without the plan gate. That same
+  `config pull` was otherwise useful independent of this: it turned up that `supabase/config.toml`
+  was still `supabase init`'s generic template (localhost `site_url`, MFA disabled, default pooler
+  sizes) rather than the project's real settings — now synced, which matters because
+  `supabase config push` writes the WHOLE file; pushing the stale template would have silently
+  reset real settings back to generic defaults. Don't run `config push` without pulling first if
+  this file is ever touched again.
 - **Not pursued, cosmetic**: `pg_trgm`/`unaccent` extensions living in the `public` schema instead
   of a dedicated schema — best-practice only, not a real vulnerability, and moving extension
   schemas is a riskier change for marginal benefit.
