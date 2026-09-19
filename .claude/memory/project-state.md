@@ -420,6 +420,23 @@ estimate, not a recovered exact value** — the true month/page this reached bef
 lost. If ingestion ever seems to be re-covering suspiciously many already-known books once it
 resumes, that's expected here, not a new bug.
 
+### New-vs-already-known book counts during ingestion (2026-09-19)
+Two things checked: (1) duplicate prevention — **confirmed real, not just assumed**: `books` has
+an actual `UNIQUE` constraint (`books_biblionet_id_unique`) on `biblionetId`, verified directly
+against the live schema (`pg_constraint`), and `runCatalogIngestion()` upserts with
+`onConflict:'biblionetId'` — so a re-fetched book updates its existing row rather than
+duplicating. (2) **New-vs-updated split, added same day**: previously `runCatalogIngestion()`
+only logged "Saved N books," which was really "attempted to save N via upsert" — no way to tell
+how many were genuinely brand-new rows versus already-known books just being refreshed. Added a
+pre-upsert check: `SELECT biblionetId FROM books WHERE biblionetId IN (...)` for the batch's ids
+(a plain Postgres query — costs nothing against the Biblionet daily quota, unlike everything else
+in this file) — the set difference gives an exact `newCount`/`updatedCount` split.
+`IngestionResult` gained both fields; console logs and the admin UI ("Saved N books (X new, Y
+already known)") both show the breakdown now. Two other places in `app/catalog-ingestion.tsx`
+construct placeholder `IngestionResult`-shaped objects before any real run has happened
+(`useEffect` on mount, `handleReset`) — both updated to include `newCount:0, updatedCount:0` too,
+or TypeScript would (rightly) reject them as incomplete.
+
 ---
 
 ## Components (components/)
