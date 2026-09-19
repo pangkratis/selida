@@ -1,6 +1,6 @@
 import { ThemedText } from '@/components/themed-text';
 import { AccentPalette, BorderRadius, Colors, roundedFont } from '@/constants/theme';
-import { IngestionResult, SubSyncResult, clearBookDatabase, readCursor, resetCursor, runCatalogIngestion, syncSubcategories } from '@/services/catalog-ingestion';
+import { ContributorSyncResult, IngestionResult, SubSyncResult, clearBookDatabase, readCursor, resetCursor, runCatalogIngestion, syncContributors, syncSubcategories } from '@/services/catalog-ingestion';
 import { supabase } from '@/services/supabaseConfig';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
@@ -208,6 +208,7 @@ export default function CatalogIngestionScreen() {
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
   const [lookupStatus, setLookupStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [subSync, setSubSync] = useState<{ status: 'idle' | 'running' | 'done' | 'error'; result: SubSyncResult | null }>({ status: 'idle', result: null });
+  const [contributorSync, setContributorSync] = useState<{ status: 'idle' | 'running' | 'done' | 'error'; result: ContributorSyncResult | null }>({ status: 'idle', result: null });
 
   const accent = AccentPalette[1];
 
@@ -282,6 +283,15 @@ export default function CatalogIngestionScreen() {
     const result = await syncSubcategories();
     if (!result) { setSubSync({ status: 'idle', result: null }); return; }
     setSubSync({ status: result.error ? 'error' : 'done', result });
+    fetchLatestBooks();
+  };
+
+  const handleSyncContributors = async () => {
+    if (contributorSync.status === 'running') return;
+    setContributorSync({ status: 'running', result: null });
+    const result = await syncContributors();
+    if (!result) { setContributorSync({ status: 'idle', result: null }); return; }
+    setContributorSync({ status: result.error ? 'error' : 'done', result });
     fetchLatestBooks();
   };
 
@@ -496,6 +506,36 @@ export default function CatalogIngestionScreen() {
           </ThemedText>
         )}
         {subSync.status === 'error' && (
+          <ThemedText style={[styles.hint, { color: theme.error, fontFamily: roundedFont('500') }]}>
+            Sync error — check console
+          </ThemedText>
+        )}
+
+        <TouchableOpacity
+          style={[styles.submitButton, { backgroundColor: contributorSync.status === 'running' ? AccentPalette[4] + '80' : AccentPalette[4] }]}
+          onPress={handleSyncContributors}
+          activeOpacity={0.82}
+          disabled={contributorSync.status === 'running'}
+        >
+          {contributorSync.status === 'running' ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <ThemedText style={[styles.submitText, { fontFamily: roundedFont('700') }]}>
+                Sync contributors
+              </ThemedText>
+              <Ionicons name="people-outline" size={17} color="#fff" />
+            </>
+          )}
+        </TouchableOpacity>
+
+        {contributorSync.status === 'done' && contributorSync.result && (
+          <ThemedText style={[styles.hint, { color: AccentPalette[4], fontFamily: roundedFont('500') }]}>
+            Synced {contributorSync.result.synced} books · {contributorSync.result.remaining} remaining
+            {contributorSync.result.stoppedEarly ? ' · stopped early, likely hit today’s rate limit' : ''}
+          </ThemedText>
+        )}
+        {contributorSync.status === 'error' && (
           <ThemedText style={[styles.hint, { color: theme.error, fontFamily: roundedFont('500') }]}>
             Sync error — check console
           </ThemedText>

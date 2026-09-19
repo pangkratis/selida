@@ -297,6 +297,131 @@ export async function syncSubcategories(): Promise<SubSyncResult | null> {
     }
 }
 
+export interface ContributorSyncResult {
+    synced: number;
+    remaining: number;
+    error?: string;
+    stoppedEarly?: boolean;
+}
+
+// Shares the same 1000/day Biblionet quota as SUB_BATCH's subcategory sync
+// and the catalog ingestion crawl — running this the same day as either of
+// those will eat into the same budget. No shared cross-feature tracker;
+// left as a manual judgment call (which sync to run on a given day), same
+// as ingestion and subcategory sync already coexist without one.
+const CONTRIBUTOR_SYNC_BATCH = 900;
+
+export async function syncContributors(): Promise<ContributorSyncResult | null> {
+    if (!__DEV__) return null;
+
+    try {
+        const { data: books, error: fetchError } = await supabase
+            .from('books')
+            .select('id, biblionetId, title')
+            .eq('syncedContributors', false)
+            .not('biblionetId', 'is', null)
+            .order('popularityCount', { ascending: false })
+            .limit(CONTRIBUTOR_SYNC_BATCH);
+
+        if (fetchError) throw fetchError;
+        if (!books || books.length === 0) return { synced: 0, remaining: 0 };
+
+        let synced = 0;
+        let consecutiveFailures = 0;
+        let stoppedEarly = false;
+
+        for (const book of books) {
+            try {
+                const { data, error: proxyError } = await supabase.functions.invoke('biblionet-proxy', {
+                    body: { endpoint: 'get_contributors', params: { title: String(book.biblionetId) } },
+                });
+
+                if (proxyError) {
+                    console.warn(`[ContributorSync] proxy error for biblionetId ${book.biblionetId}`, proxyError);
+                    consecutiveFailures++;
+                    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                        console.warn(`[ContributorSync] ${MAX_CONSECUTIVE_FAILURES} consecutive failures — stopping early, likely hit today's rate limit`);
+                        stoppedEarly = true;
+                        break;
+                    }
+                    continue;
+                }
+
+                consecutiveFailures = 0;
+                const contributorRows: any[] = Array.isArray(data) ? data.flat() : [];
+
+                for (const row of contributorRows) {
+                    const contributorBiblionetId = row.ContributorID ? String(row.ContributorID) : null;
+                    const fullName = (row.ContributorFullName ?? '').trim();
+                    if (!contributorBiblionetId || !fullName) continue;
+
+                    const { data: contributor, error: contributorError } = await supabase
+                        .from('contributors')
+                        .upsert({ biblionetId: contributorBiblionetId, fullName }, { onConflict: 'biblionetId' })
+                        .select('id')
+                        .single();
+
+                    if (contributorError || !contributor) {
+                        console.error(`[ContributorSync] Error upserting contributor ${contributorBiblionetId}:`, contributorError);
+                        continue;
+                    }
+
+                    // Coalesce a missing type to 0 rather than null — Postgres
+                    // treats NULL as distinct from itself in unique
+                    // constraints, which would let a re-sync create duplicate
+                    // links for a contributor with an unlisted role.
+                    const { error: linkError } = await supabase
+                        .from('book_contributors')
+                        .upsert(
+                            {
+                                book_id: book.id,
+                                contributor_id: contributor.id,
+                                contributorTypeId: row.ContributorTypeID ? parseInt(row.ContributorTypeID, 10) : 0,
+                                contributorType: row.ContributorType ?? null,
+                                presentOrder: row.PresentOrder ? parseInt(row.PresentOrder, 10) : null,
+                            },
+                            { onConflict: 'book_id,contributor_id,contributorTypeId' }
+                        );
+
+                    if (linkError) {
+                        console.error(`[ContributorSync] Error linking contributor ${contributorBiblionetId} to book ${book.id}:`, linkError);
+                    }
+                }
+
+                const { error: updateError } = await supabase
+                    .from('books')
+                    .update({ syncedContributors: true })
+                    .eq('id', book.id);
+
+                if (updateError) {
+                    console.error(`[ContributorSync] Update error for ${book.biblionetId}:`, updateError);
+                } else {
+                    console.log(`[ContributorSync] "${book.title}" → ${contributorRows.length} contributors`);
+                    synced++;
+                }
+            } catch (err) {
+                console.error(`[ContributorSync] Error for biblionetId ${book.biblionetId}:`, err);
+                consecutiveFailures++;
+                if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                    console.warn(`[ContributorSync] ${MAX_CONSECUTIVE_FAILURES} consecutive failures — stopping early, likely hit today's rate limit`);
+                    stoppedEarly = true;
+                    break;
+                }
+            }
+        }
+
+        const { count } = await supabase
+            .from('books')
+            .select('*', { count: 'exact', head: true })
+            .eq('syncedContributors', false);
+
+        return { synced, remaining: count ?? 0, stoppedEarly };
+    } catch (err) {
+        console.error('[ContributorSync] Error:', err);
+        return { synced: 0, remaining: 0, error: String(err) };
+    }
+}
+
 async function deleteAllInTable(tableName: string): Promise<number> {
     const { count } = await supabase.from(tableName).delete({ count: 'exact' }).not('id', 'is', null);
     return count ?? 0;

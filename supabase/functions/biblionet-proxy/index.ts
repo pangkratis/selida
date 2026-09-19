@@ -18,6 +18,7 @@ const ALLOWED_ENDPOINTS = new Set([
   'get_title',
   'get_month_titles',
   'get_title_subject',
+  'get_contributors',
 ]);
 
 Deno.serve(async (req: Request) => {
