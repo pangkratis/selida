@@ -437,6 +437,20 @@ construct placeholder `IngestionResult`-shaped objects before any real run has h
 (`useEffect` on mount, `handleReset`) — both updated to include `newCount:0, updatedCount:0` too,
 or TypeScript would (rightly) reject them as incomplete.
 
+### STOP_YEAR removed — crawl now stops on actual data exhaustion (2026-09-19)
+The backward crawl (April 2026 → older) used to hard-stop at a hardcoded `STOP_YEAR = 2015`,
+regardless of whether Biblionet still had books further back — undocumented, unexplained in code,
+origin unknown. Per explicit request ("go as far behind as there are still books fetched"),
+replaced with a real signal: `Cursor` gained a `consecutiveEmptyMonths` field (persisted in
+`ingestion_cursor` via migration_12), incremented only when a month's FIRST page (`page===1`)
+comes back with zero titles — **a trailing empty page after a month that DID have books doesn't
+count** (that's just pagination ending normally, distinguished via `c.page === 1` at the moment of
+the empty result). Crawl stops (`advance()` returns `null`) once `MAX_CONSECUTIVE_EMPTY_MONTHS`
+(6) months in a row are genuinely empty — treated as "walked past the start of Biblionet's
+catalog," not one unusually quiet month. If this number ever needs tuning (false-stops too early,
+or runs too long through genuinely empty history), it's the one constant to adjust — no other
+logic changed.
+
 ---
 
 ## Components (components/)
