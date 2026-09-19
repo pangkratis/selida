@@ -403,6 +403,23 @@ RLS: readable/writable by any `authenticated` client (same informal security pos
 `expo-secure-store` import removed from this file (still used elsewhere, e.g. auth session
 storage — untouched).
 
+**Correction, same day**: the verification test for this migration inserted a row using
+`START_CURSOR` (`year:2026, month:4, page:1`) to check read/write mechanics worked — this
+overwrote the real, already-progressed position, which had only ever existed in the now-migrated-
+away-from local SecureStore and couldn't be recovered directly. **Recovered by inference from the
+data itself**: grouped `books` by `publishedYear` (where `biblionetId is not null`, i.e. actually
+crawled, not search-added) — 2024/2025/early-2026 all show ~full-year volume (~7,500 books/year,
+2026 partial-year-adjusted), 2023 shows only 1,414 (~19% of a full year), 2022-and-earlier show
+essentially zero. Since the crawl walks backward month-by-month from April 2026 toward
+`STOP_YEAR=2015`, this is exactly the signature of a crawl currently stuck partway through 2023.
+Cursor manually reset to **`year:2023, month:11, page:1`** — a deliberate 1-month safety buffer
+before the point volume drops off, favoring a small amount of harmless re-crawling (upserts
+dedupe on `biblionetId`, so no bad data results, just a few wasted requests re-confirming
+already-known books) over the alternative risk of silently skipping months forever. **This is an
+estimate, not a recovered exact value** — the true month/page this reached before is permanently
+lost. If ingestion ever seems to be re-covering suspiciously many already-known books once it
+resumes, that's expected here, not a new bug.
+
 ---
 
 ## Components (components/)
