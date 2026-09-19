@@ -1,0 +1,22 @@
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_5adee833425494 755,757-759
+  s_d6d65f87308408::t_b4a6f37f4c7269 841-914
+.claude/memory/issues-opportunities.md
+  s_d6d65f87308408::t_57507d0f6b01c8 31-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "46debc89255e96228cf0bdc21d9628064cee1a41",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
