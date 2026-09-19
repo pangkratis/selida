@@ -1,0 +1,28 @@
+app/catalog-ingestion.tsx
+  s_d6d65f87308408::t_adc3a3c8116948 211
+  s_d6d65f87308408::t_1da2819799e736 289-297
+  s_d6d65f87308408::t_9907cc2c6482a8 3
+  s_d6d65f87308408::t_bfa1a5c7812483 513-542
+sql/migration_13_contributors.sql
+  s_d6d65f87308408::t_3a5cb0773f5f09 1-79
+supabase/functions/biblionet-proxy/index.ts
+  s_d6d65f87308408::t_23db849e7e2833 21
+services/catalog-ingestion.ts
+  s_d6d65f87308408::t_7c4537c89d1269 300-424
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1500ec2b5547d5986b2c78eadc00e261edec44f8",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
