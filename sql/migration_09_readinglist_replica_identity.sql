@@ -1,0 +1,27 @@
+-- =============================================================================
+-- Migration 09: REPLICA IDENTITY FULL on readingList
+-- =============================================================================
+-- Why this exists:
+--   profile.tsx subscribes to postgres_changes on readingList with event:'*' to
+--   keep the reading/wishlist/finished shelves in sync live. By default Postgres
+--   only includes the PRIMARY KEY columns in a DELETE's replication payload
+--   (REPLICA IDENTITY DEFAULT). readingList has no single-column primary key
+--   (it's unique on (userId, bookId) via a constraint, not a PK), so Supabase
+--   Realtime could not reliably identify which row was deleted — DELETE events
+--   were effectively missed.
+--
+--   The workaround was a useFocusEffect() in profile.tsx that force-reloaded the
+--   ENTIRE list (1 query + N per-book queries) every time the screen regained
+--   focus — including every time book-details was closed. That made the screen
+--   reload constantly instead of relying on realtime.
+--
+--   REPLICA IDENTITY FULL makes Postgres include the ENTIRE OLD row in DELETE
+--   (and UPDATE) replication payloads, so Realtime can always identify the
+--   affected row. With this set, the existing postgres_changes subscription is
+--   sufficient on its own — profile.tsx no longer needs the reload-on-focus
+--   workaround (removed in the same change that introduced this migration).
+--
+-- Run this once. No data changes, no downtime — REPLICA IDENTITY is metadata.
+-- =============================================================================
+
+ALTER TABLE public."readingList" REPLICA IDENTITY FULL;
