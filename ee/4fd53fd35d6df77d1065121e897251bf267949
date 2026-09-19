@@ -1,0 +1,20 @@
+docs/privacy.html
+  s_d6d65f87308408::t_36cf1a7c10f581 206
+  s_d6d65f87308408::t_cc0bed80de2f23 65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ee4fd53fd35d6df77d1065121e897251bf267949",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
