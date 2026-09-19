@@ -368,6 +368,41 @@ hex). Uses the app's own theme tokens throughout.
   exposed in git history and past local builds regardless of this fix. Not the app's call to make;
   flagged to the user.
 
+### Biblionet API shape, confirmed 2026-09-19 (investigating subcategory-sync speed)
+Discussed speeding up subcategory sync (1 request per book, 1000 req/day account limit, resets
+daily). Investigated whether a bulk/reverse lookup exists (subject→books instead of book→subject)
+— confirmed via the official docs at `https://biblionet.gr/webservice/` that it does NOT: **8
+total endpoints** (`get_month_titles`, `get_title`, `get_contributors`, `get_title_subject`,
+`get_person`, `get_company`, `get_subject`, `get_language`), every one single-ID-per-request, no
+batch param support anywhere, no rate limit documented publicly (the 1000/day figure must come
+from account-specific terms, not the public docs). `get_subject` returns metadata about ONE
+subject (name/DDC code), not which books have it. **1 request per book for subcategories is a
+real, unavoidable constraint of this API** — don't re-investigate this without new information.
+- **Confirmed empirically**: `get_title` and `get_month_titles` return the exact same field
+  shape (`TitlesID`, `Title`, `Category`/`CategoryID`, etc.) — neither includes subject/subcategory
+  data inline; `get_title_subject` is genuinely the only source for it.
+- **Real bug found and left unfixed by request**: `get_title` needs its ID parameter named
+  `title`, not `titleid` — confirmed by testing both directly (`{"title":"..."}` returns a full
+  record; `{"titleid":"..."}` returns an empty HTTP 500). Two call sites use the wrong name:
+  `biblionet-api.ts`'s `getBiblionetBookById()` (dead code — nothing calls it) and
+  `app/catalog-ingestion.tsx`'s `handleBookLookup()` (the admin "Book Lookup" text box — wired to
+  real UI, but **user confirmed they don't use this feature**, so left broken rather than fixed;
+  don't "fix" this unprompted later without checking this note first).
+
+### Ingestion cursor moved to the database (2026-09-19)
+The catalog crawl position (year/month/page) used to live only in `expo-secure-store` on
+whichever device last ran ingestion — invisible unless you opened the app on that exact device.
+Moved to a new single-row table, `public.ingestion_cursor` (migration_11), keyed by a fixed
+`id='catalog'`. `updatedAt` on that row doubles as "when did ingestion last make progress."
+`services/catalog-ingestion.ts`'s `getCursor()`/`saveCursor()`/`clearCursor()` now read/write this
+table instead of SecureStore; `readCursor()`/`resetCursor()` (called from
+`app/catalog-ingestion.tsx`) kept their exact signatures, so the admin UI needed zero changes.
+RLS: readable/writable by any `authenticated` client (same informal security posture as
+`books`/`bookStats` — not gated to real admins at the DB level, only the UI path to it is gated by
+`isAdmin` client-side) — verified anon access is blocked, authenticated read/write both work.
+`expo-secure-store` import removed from this file (still used elsewhere, e.g. auth session
+storage — untouched).
+
 ---
 
 ## Components (components/)
