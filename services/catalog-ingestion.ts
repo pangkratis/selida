@@ -19,27 +19,43 @@ import { supabase } from './supabaseConfig';
 const SUB_BATCH = 900;
 const COVER_BASE = 'https://www.biblionet.gr';
 const PER_PAGE = 100;
-const STOP_YEAR = 2015;
+
+// No hardcoded year floor — the crawl goes back as far as Biblionet still
+// has books. Stops once this many consecutive MONTHS (not pages — a
+// month with several pages of books naturally ends on one empty page,
+// that's not "no books," just pagination finishing) come back completely
+// empty, which is the actual signal that we've walked past the start of
+// Biblionet's catalog rather than just hit one unusually quiet month.
+const MAX_CONSECUTIVE_EMPTY_MONTHS = 6;
 
 const CURSOR_ROW_ID = 'catalog';
-const START_CURSOR = { year: 2026, month: 4, page: 1 };
+const START_CURSOR = { year: 2026, month: 4, page: 1, consecutiveEmptyMonths: 0 };
 
 /* ── Cursor helpers ──────────────────────────────────────────────── */
 
-interface Cursor { year: number; month: number; page: number; }
+interface Cursor { year: number; month: number; page: number; consecutiveEmptyMonths: number; }
 
 async function getCursor(): Promise<Cursor> {
     const { data } = await supabase
         .from('ingestion_cursor')
-        .select('year, month, page')
+        .select('year, month, page, consecutiveEmptyMonths')
         .eq('id', CURSOR_ROW_ID)
         .maybeSingle();
-    return data ? { year: data.year, month: data.month, page: data.page } : { ...START_CURSOR };
+    return data
+        ? { year: data.year, month: data.month, page: data.page, consecutiveEmptyMonths: data.consecutiveEmptyMonths ?? 0 }
+        : { ...START_CURSOR };
 }
 
 async function saveCursor(c: Cursor): Promise<void> {
     await supabase.from('ingestion_cursor').upsert(
-        { id: CURSOR_ROW_ID, year: c.year, month: c.month, page: c.page, updatedAt: new Date().toISOString() },
+        {
+            id: CURSOR_ROW_ID,
+            year: c.year,
+            month: c.month,
+            page: c.page,
+            consecutiveEmptyMonths: c.consecutiveEmptyMonths,
+            updatedAt: new Date().toISOString(),
+        },
         { onConflict: 'id' }
     );
 }
@@ -49,12 +65,18 @@ async function clearCursor(): Promise<void> {
 }
 
 function advance(c: Cursor, hasResults: boolean): Cursor | null {
-    if (hasResults) return { ...c, page: c.page + 1 };
+    if (hasResults) return { ...c, page: c.page + 1, consecutiveEmptyMonths: 0 };
+
+    // Only a page-1 miss means the WHOLE month was empty — a trailing
+    // empty page after a month that did have books doesn't count.
+    const monthWasEmpty = c.page === 1;
+    const consecutiveEmptyMonths = monthWasEmpty ? c.consecutiveEmptyMonths + 1 : c.consecutiveEmptyMonths;
+    if (consecutiveEmptyMonths >= MAX_CONSECUTIVE_EMPTY_MONTHS) return null;
+
     let { year, month } = c;
     month -= 1;
     if (month < 1) { month = 12; year -= 1; }
-    if (year < STOP_YEAR) return null;
-    return { year, month, page: 1 };
+    return { year, month, page: 1, consecutiveEmptyMonths };
 }
 
 /* ── API fetch ───────────────────────────────────────────────────── */
