@@ -49,46 +49,50 @@
   exact escalation that worked before now no-ops (stays `false`), while normal self-edits
   (displayName, language, etc.) still work.
 
-### 0c. Supabase security advisor findings (2026-09-19) — mostly unaddressed, triaged below
+### 0c. Supabase security advisor findings (2026-09-19) — FIXED except one dashboard toggle
 Ran `supabase db advisors --linked --type security` (Supabase's own linter) after the manual RLS
-audit above — surfaces issues a manual table-by-table test can't see. None of these are fixed yet
-except where noted; listed here so they don't get lost.
+audit above — surfaces issues a manual table-by-table test can't see. Deferred initially, fixed
+same day in a follow-up pass via `sql/migration_14_lock_down_internal_functions.sql`.
 
-- **Worth doing, no code risk**: enable "Leaked Password Protection" in Supabase Dashboard →
-  Authentication → Policies — currently disabled. Checks new passwords against HaveIBeenPwned.
-  Pure dashboard toggle, no migration needed.
-- **Worth reviewing — likely real, not yet fixed**: several `SECURITY DEFINER` functions that look
-  like they should be INTERNAL-only (triggered automatically by Postgres, never called directly by
-  the app) are nonetheless directly callable via `/rest/v1/rpc/<name>` by `anon` AND
-  `authenticated`: `fn_activity_sync_views`, `fn_reading_list_sync_stats`, `fn_sync_book_categories`,
+- **FIXED**: 8 `SECURITY DEFINER` functions that were INTERNAL-only (triggered automatically by
+  Postgres, confirmed via grep — zero client-side `.rpc(...)` calls anywhere in the app) were
+  nonetheless directly callable via `/rest/v1/rpc/<name>` by both `anon` and `authenticated`:
+  `fn_activity_sync_views`, `fn_reading_list_sync_stats`, `fn_sync_book_categories`,
   `fn_sync_book_genres`, `fn_sync_book_popularity`, `fn_sync_book_subcategories`,
-  `fn_resolve_all_book_genres`, `fn_resolve_book_genres`. If none of these are meant to be called
-  directly by client code (check first — grep the app for `.rpc('fn_...')` before touching
-  anything), the fix is `REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated` on each, so they stay
-  callable only by their trigger context / service role. Risk if left as-is: since they run as
-  `SECURITY DEFINER` (elevated privileges), an outside caller invoking them directly (e.g.
-  repeatedly calling a full-catalog resync function) could cause unintended writes or load, even
-  without any data leak.
-- **Worth reviewing — likely fine, but confirm**: `search_books`, `get_book_recommendations`,
-  `get_browsable_genres`, `get_popular_subcategories`, `create_user_profile` are ALSO flagged as
-  anon/authenticated-callable `SECURITY DEFINER` functions — but these genuinely ARE meant to be
-  called directly by the app (confirmed via `.rpc(...)` call sites in `app/`), so this is expected,
-  not a bug. Listed here only so the noisy advisor warning isn't mistaken for 8 problems instead of
-  the ~8 legitimate ones above.
-- **Worth a closer look — possible integrity issue, not confirmed exploitable**:
-  `create_user_profile` is callable by `anon` (fully unauthenticated, not just logged-in users) and
-  takes an arbitrary `p_id` with no check that it matches the caller's own auth uid, and does
-  `on conflict (id) do nothing`. In theory, an anonymous caller who somehow knew a real user's auth
-  UUID could pre-create/squat that profile row before the real user's own post-signup call runs,
-  silently no-oping the legitimate one. Practical severity is low (requires knowing another user's
-  UUID, which isn't exposed anywhere obvious), but the function should probably assert
-  `p_id = auth.uid()` internally and/or not be callable by `anon` at all.
-- **Minor, best-practice only**: `fn_books_search_text` and `create_user_profile` have a mutable
-  `search_path` (should be pinned via `set search_path = public` like the new
-  `protect_admin_flag()` trigger function does) — theoretical search-path-hijack risk for
-  `SECURITY DEFINER` functions, low practical severity here. `pg_trgm`/`unaccent` extensions living
-  in the `public` schema instead of a dedicated schema — cosmetic/best-practice, not a real
-  vulnerability.
+  `fn_resolve_all_book_genres`, `fn_resolve_book_genres`. `REVOKE EXECUTE` applied to all 8.
+  **Verified all three affected triggers still fire correctly after the revoke** (revoking direct
+  RPC access doesn't affect a function's own trigger-context execution) — tested live: updating a
+  book's title still regenerates `search_text`, inserting `userActivity` still increments
+  `bookStats.views`, inserting into `readingList` still increments `bookStats.wishlist`.
+- **Confirmed fine, not a bug**: `search_books`, `get_book_recommendations`,
+  `get_browsable_genres`, `get_popular_subcategories` are also anon/authenticated-callable
+  `SECURITY DEFINER` functions, but genuinely ARE meant to be called directly by the app — left
+  untouched.
+- **FIXED**: `create_user_profile` accepted an arbitrary `p_id` from even anonymous callers with
+  no ownership check (`on conflict (id) do nothing` meant an anon caller who knew a real user's
+  UUID could have pre-squatted that profile row). Rebuilt the function (fetched the REAL live body
+  via `pg_get_functiondef` first — the static `schema.sql` was stale, still referencing a `stats`
+  column already dropped from the live table) to `raise exception` unless
+  `p_id = auth.uid()`, and revoked `anon` execute entirely (kept for `authenticated` — confirmed
+  the real signup flow in `app/(auth)/signup.tsx` already has a session by the time it calls this,
+  since email confirmation is disabled and `signUp()` returns a session immediately).
+  **Verified live**: real signup + own-profile creation still works; anon calls and
+  authenticated-as-someone-else calls both correctly rejected.
+- **FIXED**: pinned `search_path = public` on `create_user_profile` and `fn_books_search_text`
+  (previously mutable — a theoretical search-path-hijack vector for `SECURITY DEFINER` functions).
+- **Still open, dashboard-only**: "Leaked Password Protection" toggle (Authentication → Policies)
+  — confirmed via `supabase config pull` that this setting isn't represented in the CLI's
+  `config.toml` schema at all (a full pull of real remote auth/db/storage config came back with no
+  trace of it), so it can't be scripted from here. Genuinely needs a manual dashboard visit — 2026-
+  09-19's `supabase config pull` was otherwise useful independent of this: it turned up that
+  `supabase/config.toml` was still `supabase init`'s generic template (localhost `site_url`, MFA
+  disabled, default pooler sizes) rather than the project's real settings — now synced, which
+  matters because `supabase config push` writes the WHOLE file; pushing the stale template would
+  have silently reset real settings back to generic defaults. Don't run `config push` without
+  pulling first if this file is ever touched again.
+- **Not pursued, cosmetic**: `pg_trgm`/`unaccent` extensions living in the `public` schema instead
+  of a dedicated schema — best-practice only, not a real vulnerability, and moving extension
+  schemas is a riskier change for marginal benefit.
 
 ### 1. Debug log in bookStats.ts — FIXED (2026-06-25)
 - bookStats.ts is now no-op stubs; all stat logic moved to Postgres triggers
