@@ -12,7 +12,11 @@ import { supabase } from './supabaseConfig';
 
 /* ── Config ──────────────────────────────────────────────────────── */
 
-const SUB_BATCH = 100;
+// Biblionet's account-level quota is 1000 requests/day (resets daily, per
+// the user — not in the public API docs). This is 100 short of that,
+// leaving headroom for the same day's catalog ingestion crawl and any
+// live user searches, which share the same quota.
+const SUB_BATCH = 900;
 const COVER_BASE = 'https://www.biblionet.gr';
 const PER_PAGE = 100;
 const STOP_YEAR = 2015;
@@ -170,7 +174,14 @@ export interface SubSyncResult {
     synced: number;
     remaining: number;
     error?: string;
+    stoppedEarly?: boolean;
 }
+
+// Consecutive (not total) failures before assuming something systemic is
+// wrong — most likely today's Biblionet request quota has been hit
+// partway through the batch — rather than blindly burning through the
+// rest of SUB_BATCH on doomed requests.
+const MAX_CONSECUTIVE_FAILURES = 5;
 
 export async function syncSubcategories(): Promise<SubSyncResult | null> {
     if (!__DEV__) return null;
@@ -181,12 +192,15 @@ export async function syncSubcategories(): Promise<SubSyncResult | null> {
             .select('id, biblionetId, title')
             .eq('syncedSub', false)
             .not('biblionetId', 'is', null)
+            .order('popularityCount', { ascending: false })
             .limit(SUB_BATCH);
 
         if (fetchError) throw fetchError;
         if (!books || books.length === 0) return { synced: 0, remaining: 0 };
 
         let synced = 0;
+        let consecutiveFailures = 0;
+        let stoppedEarly = false;
 
         for (const book of books) {
             try {
@@ -196,9 +210,16 @@ export async function syncSubcategories(): Promise<SubSyncResult | null> {
 
                 if (proxyError) {
                     console.warn(`[SubSync] proxy error for biblionetId ${book.biblionetId}`, proxyError);
+                    consecutiveFailures++;
+                    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                        console.warn(`[SubSync] ${MAX_CONSECUTIVE_FAILURES} consecutive failures — stopping early, likely hit today's rate limit`);
+                        stoppedEarly = true;
+                        break;
+                    }
                     continue;
                 }
 
+                consecutiveFailures = 0;
                 console.log(`[SubSync] Raw response for biblionetId ${book.biblionetId}:`, JSON.stringify(data, null, 2));
                 const subjects: any[] = Array.isArray(data) ? data.flat() : [];
                 const subcategories: string[] = subjects
@@ -219,6 +240,12 @@ export async function syncSubcategories(): Promise<SubSyncResult | null> {
                 }
             } catch (err) {
                 console.error(`[SubSync] Error for biblionetId ${book.biblionetId}:`, err);
+                consecutiveFailures++;
+                if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                    console.warn(`[SubSync] ${MAX_CONSECUTIVE_FAILURES} consecutive failures — stopping early, likely hit today's rate limit`);
+                    stoppedEarly = true;
+                    break;
+                }
             }
         }
 
@@ -227,7 +254,7 @@ export async function syncSubcategories(): Promise<SubSyncResult | null> {
             .select('*', { count: 'exact', head: true })
             .eq('syncedSub', false);
 
-        return { synced, remaining: count ?? 0 };
+        return { synced, remaining: count ?? 0, stoppedEarly };
     } catch (err) {
         console.error('[SubSync] Error:', err);
         return { synced: 0, remaining: 0, error: String(err) };

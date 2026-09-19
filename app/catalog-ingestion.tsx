@@ -492,6 +492,7 @@ export default function CatalogIngestionScreen() {
         {subSync.status === 'done' && subSync.result && (
           <ThemedText style={[styles.hint, { color: AccentPalette[3], fontFamily: roundedFont('500') }]}>
             Synced {subSync.result.synced} books · {subSync.result.remaining} remaining
+            {subSync.result.stoppedEarly ? ' · stopped early, likely hit today’s rate limit' : ''}
           </ThemedText>
         )}
         {subSync.status === 'error' && (
