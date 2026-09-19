@@ -752,8 +752,11 @@ isbn, language, publisher, edition, isActive, createdAt, biblionetId (unique), s
 bookId text (PK), views, reading, completed, wishlist, lastActivityAt
 
 ### users
-id uuid, displayName, email, language, country, catalogPreference, onboardingComplete, preferredSubcategories text[], lastLoginAt
+id uuid, displayName, email, language, country, catalogPreference, onboardingComplete, preferredSubcategories text[], lastLoginAt, isAdmin boolean
 (stats jsonb DROPPED — was never populated)
+`isAdmin` is protected by a `BEFORE UPDATE` trigger (`migration_10_protect_admin_flag.sql`, added
+2026-09-19) — a client can send `isAdmin` in a self-PATCH and it will be silently ignored/reset
+unless the request is made with the service_role key. See "RLS audit (2026-09-19)" below for why.
 
 ### readingList
 userId, bookId, status (wishlist|reading|completed), progressPercentage, totalReadingTimeSeconds,
@@ -835,3 +838,77 @@ from rules. books.categories / books.subcategories are KEPT as provenance — ne
 
 **Not yet done:** run the migration; switch Explore + onboarding to `get_browsable_genres`;
 LLM batch classification for the 68%; ISO language codes; cross-source book identity.
+
+## Security audits (2026-09-19)
+
+### App-store readiness review — found hardcoded Biblionet credentials
+Triggered by "what do we need before app stores" — found the real Biblionet account
+username/password hardcoded client-side in 3 places. Full detail and fix in
+`issues-opportunities.md` #0. Net result: credential moved to a Supabase Edge Function
+(`supabase/functions/biblionet-proxy/`), verified working live.
+
+### Git history reset (2026-09-19)
+Since the Biblionet credential had been committed to git history (though the repo was always
+private, and no real app build was ever produced from this code — confirmed with the user,
+so the actual exposure surface was narrow), the user chose to drop history entirely rather than
+rewrite it in place (didn't care about keeping old commit log). Process used:
+1. `mv .git .git.bak-<timestamp>` (rename, not delete — reversible safety net)
+2. Moved that backup OUTSIDE the project directory entirely: `../Selida-old-git-history-backup-<date>`
+   (sibling to the project folder) — critical, since leaving it inside the repo risks it getting
+   swept into a future `git add -A`.
+3. `git init -b main`, `git add -A`, single "Initial commit" with the current (already-fixed)
+   codebase.
+4. User manually deleted the old GitHub repo and created a fresh empty one (same name,
+   `pangkratis/selida`) via the GitHub web UI — this tool has no `gh` CLI access, cannot create/
+   delete GitHub repos itself, only push to an already-existing remote.
+5. `git remote add origin https://github.com/pangkratis/selida.git`, `git push -u origin main`.
+**If this ever needs to be referenced**: the pre-reset history (44 commits) lives at
+`../Selida-old-git-history-backup-<date>` on the same machine it was done on — nowhere else.
+**Caveat inherent to this approach**: only cleans up what's on this machine / this GitHub repo.
+Any other clone of the old repo (another machine, a synced backup) would still have the old
+history — not something either the user or this tool could verify from here.
+
+### RLS audit (2026-09-19)
+Manual, hands-on audit — not just reading policy definitions, actually attempted the accesses
+that should be blocked, using real Supabase auth accounts. Two passes:
+
+**Pass 1 — anonymous access** (anon key, no login) against every table found in `sql/*.sql`
+(`grep -ihE "^\s*create table"`): `users`, `readingList`, `readingSessions`, `userActivity`,
+`feedback` all correctly return `[]` for `SELECT *` with no auth. `books`, `categories`,
+`subcategories`, `book_categories`, `book_subcategories`, `genres`, `genre_mappings`,
+`book_genres` are all openly readable — correct, these are catalog/taxonomy data with nothing
+personal in them. **One low-severity looseness noted, not fixed**: `bookStats` (per-book
+aggregate counts, no personal data) is also openly anon-readable — probably fine, but wasn't a
+deliberate decision, just how RLS happens to be configured; revisit if it ever matters.
+
+**Pass 2 — authenticated cross-user access** (the more common real bug class, invisible to
+anon-only testing). Created two real throwaway accounts via `/auth/v1/signup` (not just
+`auth.users` — also had to call the app's own `create_user_profile` RPC to populate
+`public.users`, since that row isn't auto-created by a trigger; found this by hitting a foreign-key
+violation on the first attempt and tracing it to `app/(auth)/signup.tsx`'s post-signup RPC call).
+User B created real `readingList`/`userActivity` rows; User A then attempted, live, against the
+real API:
+- SELECT another user's `readingList`/`userActivity`/`users` row → blocked (`[]`) in all cases.
+- UPDATE / DELETE another user's `readingList` row → both silently matched zero rows (RLS-filtered
+  before the write), verified by re-checking as the actual owner that nothing changed.
+- INSERT into `readingList` with someone else's `userId` (impersonation) → explicitly rejected,
+  403, "new row violates row-level security policy."
+- UPDATE another user's `users` profile row → blocked (`[]`).
+- **UPDATE OWN `users` row setting `isAdmin: true`` → SUCCEEDED.** This was the one real bug —
+  see `issues-opportunities.md` #0b for the fix (`migration_10_protect_admin_flag.sql`, a
+  `BEFORE UPDATE` trigger). Re-tested after the fix: identical request now correctly leaves
+  `isAdmin` at `false`; normal self-edits (displayName etc.) still work.
+
+All test accounts/rows were cleaned up (deleted) after testing, including reverting the `isAdmin`
+escalation before deleting the row. **Not cleaned up**: the two `auth.users` entries themselves
+(`selida.rls.test.a@mailinator.com` / `...b@mailinator.com`) — deleting an auth user needs the
+service_role key, which this tool doesn't have; flagged to the user to remove via Dashboard →
+Authentication → Users whenever convenient. Harmless either way — no real data attached.
+
+**Follow-up — ran `supabase db advisors --linked --type security`** (Supabase's own linter) after
+the manual audit, since manual testing can't see everything a static analysis catches. Full triage
+in `issues-opportunities.md` #0c — short version: one free dashboard-toggle fix (leaked password
+protection), a batch of internal-looking `SECURITY DEFINER` functions that are exposed as public
+RPC endpoints and probably shouldn't be, and `create_user_profile` accepting an arbitrary `p_id`
+from even anonymous callers. None of #0c is fixed yet, unlike #0b — read that section before
+assuming the whole security pass is complete.

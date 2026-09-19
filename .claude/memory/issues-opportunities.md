@@ -28,6 +28,67 @@
   the first deploy in a repo that didn't start with the Supabase CLI. Also: this machine has no
   Docker installed, so `supabase functions deploy <name> --use-api` (server-side bundling, no
   Docker needed) is the right flag here, not the Docker-based default.
+- **Follow-up 2026-09-19**: git history containing this credential was also scrubbed — the repo
+  was reset to a single fresh "Initial commit" (old history kept only in a local backup folder
+  OUTSIDE the repo, `../Selida-old-git-history-backup-<date>`, sibling to the project). See
+  `project-state.md` → "Git history reset" for the full record if this ever needs to be referenced.
+
+### 0b. RLS self-privilege-escalation on `users.isAdmin` — FIXED (2026-09-19)
+- Manually tested (real auth accounts, real cross-user attempts, not just reasoning about it) —
+  found that any authenticated user could `PATCH /rest/v1/users?id=eq.<self>` with
+  `{"isAdmin": true}` and it would actually be written. No check anywhere stopped it — the `users`
+  UPDATE policy allowed full self-editing including that column, and `catalog-ingestion.tsx`'s
+  admin gate is purely a client-side `user.isAdmin` check with nothing backing it server-side.
+  Practical impact: any signed-in user could grant themselves access to admin screens/features.
+- Everything else tested passed: cross-user SELECT/UPDATE/DELETE on `readingList`/`users`/
+  `userActivity` all correctly blocked; INSERT impersonating another `userId` explicitly rejected
+  by RLS (403). Full test methodology in `project-state.md` → "RLS audit (2026-09-19)".
+- **Fixed** via `sql/migration_10_protect_admin_flag.sql` — a `BEFORE UPDATE` trigger on
+  `public.users` that resets `isAdmin` to its previous value unless the caller is `service_role`.
+  Applied directly to the live DB via `supabase db query --linked -f <file>` and verified: the
+  exact escalation that worked before now no-ops (stays `false`), while normal self-edits
+  (displayName, language, etc.) still work.
+
+### 0c. Supabase security advisor findings (2026-09-19) — mostly unaddressed, triaged below
+Ran `supabase db advisors --linked --type security` (Supabase's own linter) after the manual RLS
+audit above — surfaces issues a manual table-by-table test can't see. None of these are fixed yet
+except where noted; listed here so they don't get lost.
+
+- **Worth doing, no code risk**: enable "Leaked Password Protection" in Supabase Dashboard →
+  Authentication → Policies — currently disabled. Checks new passwords against HaveIBeenPwned.
+  Pure dashboard toggle, no migration needed.
+- **Worth reviewing — likely real, not yet fixed**: several `SECURITY DEFINER` functions that look
+  like they should be INTERNAL-only (triggered automatically by Postgres, never called directly by
+  the app) are nonetheless directly callable via `/rest/v1/rpc/<name>` by `anon` AND
+  `authenticated`: `fn_activity_sync_views`, `fn_reading_list_sync_stats`, `fn_sync_book_categories`,
+  `fn_sync_book_genres`, `fn_sync_book_popularity`, `fn_sync_book_subcategories`,
+  `fn_resolve_all_book_genres`, `fn_resolve_book_genres`. If none of these are meant to be called
+  directly by client code (check first — grep the app for `.rpc('fn_...')` before touching
+  anything), the fix is `REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated` on each, so they stay
+  callable only by their trigger context / service role. Risk if left as-is: since they run as
+  `SECURITY DEFINER` (elevated privileges), an outside caller invoking them directly (e.g.
+  repeatedly calling a full-catalog resync function) could cause unintended writes or load, even
+  without any data leak.
+- **Worth reviewing — likely fine, but confirm**: `search_books`, `get_book_recommendations`,
+  `get_browsable_genres`, `get_popular_subcategories`, `create_user_profile` are ALSO flagged as
+  anon/authenticated-callable `SECURITY DEFINER` functions — but these genuinely ARE meant to be
+  called directly by the app (confirmed via `.rpc(...)` call sites in `app/`), so this is expected,
+  not a bug. Listed here only so the noisy advisor warning isn't mistaken for 8 problems instead of
+  the ~8 legitimate ones above.
+- **Worth a closer look — possible integrity issue, not confirmed exploitable**:
+  `create_user_profile` is callable by `anon` (fully unauthenticated, not just logged-in users) and
+  takes an arbitrary `p_id` with no check that it matches the caller's own auth uid, and does
+  `on conflict (id) do nothing`. In theory, an anonymous caller who somehow knew a real user's auth
+  UUID could pre-create/squat that profile row before the real user's own post-signup call runs,
+  silently no-oping the legitimate one. Practical severity is low (requires knowing another user's
+  UUID, which isn't exposed anywhere obvious), but the function should probably assert
+  `p_id = auth.uid()` internally and/or not be callable by `anon` at all.
+- **Minor, best-practice only**: `fn_books_search_text` and `create_user_profile` have a mutable
+  `search_path` (should be pinned via `set search_path = public` like the new
+  `protect_admin_flag()` trigger function does) — theoretical search-path-hijack risk for
+  `SECURITY DEFINER` functions, low practical severity here. `pg_trgm`/`unaccent` extensions living
+  in the `public` schema instead of a dedicated schema — cosmetic/best-practice, not a real
+  vulnerability.
 
 ### 1. Debug log in bookStats.ts — FIXED (2026-06-25)
 - bookStats.ts is now no-op stubs; all stat logic moved to Postgres triggers
