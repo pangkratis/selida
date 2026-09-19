@@ -144,6 +144,10 @@ const el = {
   settingsCatalogIngestion: 'Εισαγωγή καταλόγου',
   settingsSession: 'Σύνδεση',
   settingsSignOut: 'Αποσύνδεση',
+  settingsDeleteAccount: 'Διαγραφή λογαριασμού',
+  settingsDeleteAccountConfirmTitle: 'Διαγραφή λογαριασμού;',
+  settingsDeleteAccountConfirmMessage: 'Αυτό θα διαγράψει οριστικά τον λογαριασμό σου και όλα τα δεδομένα σου — λίστες ανάγνωσης, συνεδρίες και δραστηριότητα. Δεν μπορεί να αναιρεθεί.',
+  settingsDeleteAccountError: 'Η διαγραφή του λογαριασμού απέτυχε. Δοκίμασε ξανά.',
 } as const;
 
 export default el;

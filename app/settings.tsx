@@ -12,6 +12,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
+    Alert,
     ScrollView,
     TextInput,
     TouchableOpacity,
@@ -208,6 +209,9 @@ export default function SettingsScreen() {
     const [savingName, setSavingName] = useState(false);
     const nameInputRef = useRef<TextInput>(null);
 
+    // Account deletion
+    const [deletingAccount, setDeletingAccount] = useState(false);
+
     useEffect(() => {
         setNameValue(user?.displayName ?? '');
     }, [user?.displayName]);
@@ -261,6 +265,32 @@ export default function SettingsScreen() {
     };
 
     const countryData = getCountryByCode((user as any)?.country);
+
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            t('settingsDeleteAccountConfirmTitle'),
+            t('settingsDeleteAccountConfirmMessage'),
+            [
+                { text: t('cancel'), style: 'cancel' },
+                {
+                    text: t('settingsDeleteAccount'),
+                    style: 'destructive',
+                    onPress: async () => {
+                        setDeletingAccount(true);
+                        try {
+                            const { error } = await supabase.functions.invoke('delete-account');
+                            if (error) throw error;
+                            await signOut();
+                        } catch (e) {
+                            console.error('Error deleting account:', e);
+                            setDeletingAccount(false);
+                            Alert.alert(t('settingsDeleteAccountError'));
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     if (!user) return null;
 
@@ -441,6 +471,14 @@ export default function SettingsScreen() {
                         iconColor={theme.error}
                         label={t('settingsSignOut')}
                         onPress={signOut}
+                        destructive
+                    />
+                    <Row
+                        icon="trash-outline"
+                        iconColor={theme.error}
+                        label={t('settingsDeleteAccount')}
+                        onPress={deletingAccount ? undefined : handleDeleteAccount}
+                        rightSlot={deletingAccount ? <ActivityIndicator size="small" color={theme.error} /> : undefined}
                         destructive
                         last
                     />

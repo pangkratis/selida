@@ -144,6 +144,10 @@ const en = {
   settingsCatalogIngestion: 'Catalog Ingestion',
   settingsSession: 'Session',
   settingsSignOut: 'Sign out',
+  settingsDeleteAccount: 'Delete account',
+  settingsDeleteAccountConfirmTitle: 'Delete account?',
+  settingsDeleteAccountConfirmMessage: 'This will permanently delete your account and all your data — reading lists, sessions, and activity. This cannot be undone.',
+  settingsDeleteAccountError: 'Failed to delete account. Please try again.',
 } as const;
 
 export type TranslationKeys = keyof typeof en;
