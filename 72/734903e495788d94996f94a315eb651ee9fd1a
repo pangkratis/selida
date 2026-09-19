@@ -1,0 +1,22 @@
+services/catalog-ingestion.ts
+  s_d6d65f87308408::t_77515ccbeec8f0 23-29,32,36,41,44-46,51-58,68-75,79
+  s_d6d65f87308408::t_7b685902e825bc 22
+sql/migration_12_ingestion_consecutive_empty.sql
+  s_d6d65f87308408::t_1d9a34a9297f28 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "72734903e495788d94996f94a315eb651ee9fd1a",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
