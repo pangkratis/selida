@@ -451,6 +451,58 @@ catalog," not one unusually quiet month. If this number ever needs tuning (false
 or runs too long through genuinely empty history), it's the one constant to adjust — no other
 logic changed.
 
+### Pre-launch data audit → contributors table added (2026-09-19)
+Cross-checked the live schema (`information_schema.columns`, `pg_indexes`, `pg_constraint` —
+NOT just the static `sql/*.sql` files, which can drift from what's actually live) against the full
+Biblionet API surface, testing all 4 previously-unused endpoints (`get_contributors`, `get_person`,
+`get_company`, `get_language`) live. Findings:
+- **Indexing was already solid** — GIN indexes on `authors`/`categories`/`subcategories`/
+  `searchTags`, trigram index on `search_text`. No performance gap.
+- **`get_language` is a dead end** for the known ISO-language-code issue (#8 in
+  issues-opportunities.md) — it returns the same Greek word Biblionet already stores, not an ISO
+  code. That fix still needs a local static lookup table; nothing from the API helps.
+- **`get_company`** (publisher contact info — address/phone/email) — confirmed low value for a
+  reading app, not pursued.
+- **`get_contributors` was the real find**: a book can have MULTIPLE people in DIFFERENT ROLES
+  (e.g. author + translator), each with a stable `ContributorID` — completely unlike
+  `books.authors` (a flat `text[]`, no stable identity, no roles, no non-author contributors
+  captured at all). This is the same class of problem the genre taxonomy already fixed for
+  categories (unreliable string matching vs. stable IDs) — left unfixed for authors until now.
+- **Built**: `contributors` (id uuid PK, `biblionetId` unique, `fullName`) +
+  `book_contributors` (book_id/contributor_id/`contributorTypeId`/`contributorType`/
+  `presentOrder`, unique on book+contributor+type) — see migration_13. RLS mirrors `books` exactly
+  (public read, any `authenticated` client can write — NOT the stricter `genres`-style
+  select-only-then-RPC pattern, since this gets populated by the same client-side ingestion tool
+  that already writes `books` directly). `contributorTypeId` is coalesced to `0` rather than left
+  `null` when missing — Postgres treats `NULL` as distinct from itself in unique constraints, which
+  would otherwise let a re-sync create duplicate links for a contributor with an unlisted role.
+- **`role` is stored RAW** (Biblionet's own numeric `ContributorTypeID` + Greek `ContributorType`
+  label, e.g. 1/"Συγγραφέας" for author, 2/"Μετάφραση" for translator) — NOT normalized into an
+  enum. Only one book's worth of role samples has been observed (author, translator); build a
+  proper normalized vocabulary once more role values actually show up in real data, the same way
+  `genre_mappings` grew from observed data rather than a guessed-upfront taxonomy.
+- **New `syncContributors()`** in `catalog-ingestion.ts` mirrors `syncSubcategories()`'s design
+  exactly: batched (`CONTRIBUTOR_SYNC_BATCH=900`), ordered by `popularityCount DESC`, stops after
+  `MAX_CONSECUTIVE_FAILURES` (shared constant with subcategory sync) consecutive failures. New
+  `books.syncedContributors` boolean tracks progress, mirroring `syncedSub`. Wired into
+  `app/catalog-ingestion.tsx` as a new "Sync contributors" button (`AccentPalette[4]`), identical
+  pattern to "Sync subcategories."
+- **Shares the same 1000/day Biblionet quota** as subcategory sync and catalog ingestion — no
+  cross-feature budget tracker exists or was built; running "Sync contributors" the same day as
+  "Sync subcategories" will compete for the same budget. Left as a manual judgment call, same as
+  ingestion + subcategory sync already coexist today without one.
+- `get_contributors` added PERMANENTLY to the proxy's `ALLOWED_ENDPOINTS` (now actually used).
+  `get_person`/`get_company`/`get_language` were temporarily allowed during the audit itself, then
+  reverted — not added, since nothing uses them (verified via `git diff` showing no changes before
+  the final permanent edit).
+- **Verified end-to-end against live data before considering this done**: contributor upsert,
+  book_contributors upsert (including confirming a re-upsert merges instead of duplicating, via
+  the correct `on_conflict` query param — matches what `supabase-js`'s `.upsert(..., {onConflict})`
+  sends automatically), then cleaned up all test rows.
+- **Not done, deliberately out of scope for this pass**: no book-details UI displays contributor/
+  role data yet (data layer only, per what was actually asked); `get_person` author-bio
+  integration (flagged as lower-priority "nice to have" during the audit, not built).
+
 ---
 
 ## Components (components/)
