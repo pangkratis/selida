@@ -45,6 +45,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "af95d387-1b99-419d-b344-16a2bc746230"
+      }
+    },
+    "owner": "pangkratis"
   }
 }
