@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.selida.app",
+      "bundleIdentifier": "com.selida.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,15 +21,13 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.selida.app",
+      "package": "com.selida.app"
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      // "./plugins/withGoogleSignInAndroid",
-      // "expo-router",
       [
         "expo-splash-screen",
         {
