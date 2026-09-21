@@ -1162,6 +1162,15 @@ to show the audit's original findings; don't take "None of #0c is fixed yet" abo
 
 ## Play Store Deployment (started 2026-09-21)
 
+### Pre-build exposure audit (2026-09-21) — found & fixed a catalog-wipe vulnerability
+Asked to cross-check before running `eas build`. Found something unrelated to build config: the
+`books` and `ingestion_cursor` RLS policies let ANY signed-up user modify/delete ANY row via a
+plain REST call — confirmed live with two disposable throwaway accounts (not just read from
+policy text). Fixed in `sql/migration_17_lock_down_books_and_cursor.sql` + an `isAdmin` gate added
+to `app/catalog-ingestion.tsx`. Full detail, what's fixed vs. deliberately left open (books
+INSERT/UPDATE, the biblionet-proxy quota-exhaustion vector), in `issues-opportunities.md` → 0k.
+**Read that before touching `books` RLS or the catalog-ingestion screen again.**
+
 ### Current state, verified live (not assumed)
 - **Privacy policy is live**: `https://pangkratis.github.io/selida/privacy.html` (HTTP 200,
   confirmed via curl) — GitHub Pages, no workflow file needed (repo-settings "deploy from
@@ -1182,12 +1191,20 @@ to show the audit's original findings; don't take "None of #0c is fixed yet" abo
   profile — deliberately, since this project runs via plain Expo Go, not `expo-dev-client`
   (`MEMORY.md` note); adding a dev-client profile would need that package installed first.
 - **EAS CLI logged in** as `pangkratis` (confirmed via `eas whoami`).
-- **NOT yet done**: `eas init` — creates the actual EAS project + writes `extra.eas.projectId`
-  into the resolved config. **This needs to be run interactively by the user in their own
-  terminal** — it prompts "Would you like to create a project for @pangkratis/selida?" and the
-  sandboxed shell here has no readable stdin/TTY to answer that prompt. Not attempted as a
-  workaround; `eas init --non-interactive` also doesn't support creating a NEW project (only
-  linking an existing one via `--id`).
+- **`eas init` DONE (2026-09-21)** — run by the user in their own terminal (needed an interactive
+  y/n this sandbox couldn't answer). Created `@pangkratis/selida` on EAS, ID
+  `af95d387-1b99-419d-b344-16a2bc746230`. Wrote `extra.eas.projectId` + `owner: "pangkratis"` into
+  `app.json` automatically — verified against `eas project:info`, matches. `eas build`/
+  `eas submit` are now unblocked.
+- **Found + fixed while running `eas init`**: `app.json` was NOT actually strict JSON — it had
+  two trailing commas (after `ios.bundleIdentifier` and `android.package`) and two `//` comment
+  lines in `plugins`. `npx expo config` tolerated this silently (its loader is more permissive),
+  which is why the earlier deployment-readiness check missed it — only `eas init`'s stricter
+  `JSON.parse` surfaced it ("Expected double-quoted property name in JSON"). Fixed by removing
+  the trailing commas and dropping the two comment lines (both inert — no live
+  `withGoogleSignInAndroid` call sites, and `expo-router` is auto-detected from the entry point
+  in SDK 54, doesn't need listing). **Lesson: `npx expo config` resolving cleanly does NOT mean
+  `app.json` is valid JSON — check both if this file is hand-edited again.**
 
 ### What's still Play-Console-side (needs the user directly, not code)
 - Google Play Console developer account ($25 one-time, their payment/identity — can't be done
@@ -1201,9 +1218,9 @@ to show the audit's original findings; don't take "None of #0c is fixed yet" abo
   testing before production release is allowed — confirmed current policy, not optional. Adds
   ~2 weeks to the timeline regardless of code readiness; plan around this, don't discover it late.
 
-### Order of operations once the user runs `eas init`
+### Order of operations from here
 1. `eas build --profile production --platform android` (or `preview` first for a sideload-test
-   APK before committing to a store-bound AAB)
+   APK before committing to a store-bound AAB) — unblocked now that `eas init` is done
 2. Play Console: create app, fill data safety form + listing content, start closed testing
 3. After 14 days + 12 testers: promote to production, or `eas submit --platform android` if a
    Play Console API service-account key is set up for automated submission

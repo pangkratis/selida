@@ -220,6 +220,67 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   approaches ~350-400 MB. `userActivity` should stay unpruned regardless — it feeds
   recommendations and `bookStats`, unlike the two purely-diagnostic tables.
 
+### 0k. `books`/`ingestion_cursor` RLS let any signed-up user vandalize the catalog — FIXED (2026-09-21)
+- Found asking "cross-check before we build" — unrelated to what triggered the check. **Confirmed
+  live, not just read from policy text**, same standard as the 2026-09-19 audit: created two
+  disposable throwaway accounts with no relationship to each other. Account A inserted a
+  throwaway book row. Account B — a totally unrelated signed-up user — successfully UPDATEd and
+  DELETEd that row via a plain REST call, no app UI involved. `books_auth_update` and
+  `books_auth_delete` both used `using (auth.role() = 'authenticated')` with no ownership or admin
+  check, so this generalized to: **any self-registered account could wipe or vandalize the entire
+  18k+ book catalog** from curl, independent of anything in the client app.
+- Also found: `ingestion_cursor` had `to authenticated using(true) with check(true)` for ALL
+  operations — any signed-up user could corrupt the crawl-progress tracker. Lower stakes (no user
+  data), same root cause.
+- Also found while tracing this: `readCursor()`/`resetCursor()` in `services/catalog-ingestion.ts`
+  were NOT `__DEV__`-gated, unlike their sibling functions (`runCatalogIngestion`,
+  `syncContributors`, `syncSubcategories`, `clearBookDatabase` all correctly return early when
+  `!__DEV__`). So `resetCursor()` could actually execute against production for any authenticated
+  user. The RLS fix below closes this regardless, but it's a real inconsistency in that file worth
+  knowing about if it's touched again.
+- Also found: `app/catalog-ingestion.tsx` (the admin screen, 807 lines — ingestion controls,
+  book lookup, clear-database button) had **zero admin check of its own**. The only gate was that
+  `settings.tsx` doesn't render a *link* to it for non-admins — the route itself was fully
+  reachable by direct navigation (`router.push('/catalog-ingestion')` from anywhere, or a deep
+  link) for any signed-in user, admin or not. Presentation-layer hiding, not access control —
+  exactly the pattern already flagged once before in this project (`isAdmin` self-escalation, #0b).
+- **Fixed**: `sql/migration_17_lock_down_books_and_cursor.sql` — `books` DELETE restricted to
+  `isAdmin` users (checked: zero legitimate client delete path exists outside the already-gated
+  `clearBookDatabase()`, so zero regression risk). `ingestion_cursor` restricted to `isAdmin` for
+  all operations (checked: zero legitimate non-admin read/write path exists at all). Also added an
+  `isAdmin` gate directly in `catalog-ingestion.tsx` (defense in depth — the RLS is the real fix,
+  this just stops the admin UI from rendering for a non-admin who navigates there directly).
+  **Re-verified live after applying**: same two-account test — User B's UPDATE/DELETE on User A's
+  book now silently no-ops (PostgREST returns 204 either way; had to separately confirm via a
+  public-read GET that the row still existed to prove the block was real, not just an empty-match
+  204). Non-admin SELECT on `ingestion_cursor` now returns `[]`. Legitimate flow re-tested and
+  still works: an ordinary user inserting a new book and updating their own just-added row both
+  still succeed (confirms the wishlist/save flow in `book-details.tsx`'s `upsertBook()` isn't
+  broken by this fix).
+- **NOT fixed, deliberately flagged rather than rushed**: `books` INSERT/UPDATE is still broadly
+  `authenticated`, no ownership or admin check. This is real and known: any signed-up user can
+  still overwrite an EXISTING book's title/cover/authors/etc via upsert, because
+  `book-details.tsx` calls `upsertBook()` on every single wishlist/reading-status toggle for every
+  ordinary user — restricting UPDATE to admin-only would break that core feature outright, and
+  `books` has no ownership column to key a narrower policy off of (it's a shared, non-owned
+  catalog by design). Closing this properly needs either a validated server-side upsert path (an
+  RPC that only allows setting safe fields, can log/rate-limit) or a moderation/versioning model —
+  a real design decision, not a policy tweak. Don't silently "fix" this later without discussing
+  the approach with the user first; it changes how book-saving works.
+- **Also not fixed**: `supabase/functions/biblionet-proxy` has no `isAdmin` check of its own — any
+  authenticated user can still invoke it directly via raw HTTP (bypassing the now-gated screen
+  entirely) and burn the shared 1000-req/day Biblionet quota. The function does correctly
+  allowlist endpoints (`ALLOWED_ENDPOINTS`), so it can't be used as an open relay to arbitrary
+  Biblionet methods — the exposure is quota exhaustion / availability, not data leakage. Would
+  need a function-level admin check + redeploy (`supabase functions deploy biblionet-proxy
+  --use-api`, per the no-Docker gotcha already recorded in #0). Not done — flagged as a follow-up.
+- **Test artifacts**: two disposable throwaway accounts were created to prove this
+  (`selida.rlscheck.a.<timestamp>@mailinator.com` / `...b...`) and both throwaway book rows were
+  deleted afterward (confirmed 0 remaining). The two auth users themselves could not be deleted —
+  same limitation as the 2026-09-19 audit's leftover accounts: deleting an auth user needs the
+  service_role key, which this tool doesn't have. Harmless (no real data attached); remove via
+  Dashboard → Authentication → Users whenever convenient, alongside the earlier leftover pair.
+
 ### 1. Debug log in bookStats.ts — FIXED (2026-06-25)
 - bookStats.ts is now no-op stubs; all stat logic moved to Postgres triggers
 - Debug log is gone along with the function bodies
