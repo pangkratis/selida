@@ -1,0 +1,71 @@
+locales/el.ts
+  s_d6d65f87308408::t_cf46074121a35f 9-13
+app/onboarding.tsx
+  s_d6d65f87308408::t_6586958c16cf8d 10
+  s_d6d65f87308408::t_047f3580287d51 8
+  s_d6d65f87308408::t_fc400570f705e0 192-194
+  s_d6d65f87308408::t_250990d53b669f 151-171
+  s_d6d65f87308408::t_7f8a62a9194abc 191,195-198,201
+services/deviceId.ts
+  s_d6d65f87308408::t_0441b1f0c34450 1-59
+app/(auth)/signup.tsx
+  s_d6d65f87308408::t_cfbd8b4639eee6 60-62,67
+  s_d6d65f87308408::t_ce21307130476e 8-9
+  s_d6d65f87308408::t_ff71723bc31320 83-84,88-91
+services/userActivity.ts
+  s_d6d65f87308408::t_c57eb9d815a1fe 5-7,9-12
+  s_d6d65f87308408::t_fa9964edfd5132 1,39,51
+  s_d6d65f87308408::t_dc88627fffe3e3 4,8,13-29,33-35,47,53-54
+sql/migration_15_error_logs_and_activity_metadata.sql
+  s_d6d65f87308408::t_d23398aa609977 1-81
+app/(auth)/login.tsx
+  s_d6d65f87308408::t_e3e37777b6b28d 6
+  s_d6d65f87308408::t_515d305d14e9b9 48,51,55-57
+services/analytics.ts
+  s_d6d65f87308408::t_ab4bcbf180623c 1-94
+app/books-grid.tsx
+  s_d6d65f87308408::t_dee97f8958207d 62,64,69-72,74-75
+  s_d6d65f87308408::t_59a116dfc3246a 80
+  s_d6d65f87308408::t_81b948c1250365 99
+  s_d6d65f87308408::t_8f10f995bf9015 7
+  s_d6d65f87308408::t_a17474df194fc7 73
+  s_d6d65f87308408::t_ae96ebc9a720e2 111,113
+  s_d6d65f87308408::t_b3ce2b3f2bdd2e 9
+components/error-boundary.tsx
+  s_d6d65f87308408::t_a0a903cc49b797 2-33,35-41,43-45,47-52,54-152
+  s_d6d65f87308408::t_0914fa64fe8cb8 42
+  s_d6d65f87308408::t_a972a41b6f30db 34,46,53
+  s_d6d65f87308408::t_c44738ac4e99ec 1
+app/_layout.tsx
+  s_d6d65f87308408::t_f99eebe48ab913 9
+  s_d6d65f87308408::t_cf78f0d6984f19 82-84
+  s_d6d65f87308408::t_3559ba89b19aa3 85,87,97,104,110
+  s_d6d65f87308408::t_d97d7ec9312d57 203-205,207-211
+  s_d6d65f87308408::t_73b2b894acdc2e 11,13,16
+  s_d6d65f87308408::t_e99dd671ce4ab3 37-69,71-72
+  s_d6d65f87308408::t_8027957f45b298 70
+hooks/use-storage-state.ts
+  s_d6d65f87308408::t_5bfbf4a2024dc7 5-11
+services/errorLog.ts
+  s_d6d65f87308408::t_0383ff36d01ba4 1-106
+locales/en.ts
+  s_d6d65f87308408::t_d08fce534cb35f 9-13
+sql/migration_16_app_events.sql
+  s_d6d65f87308408::t_f8f231df45238b 1-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0802cb34341de16e82a4c8b2bfd9d9909215d89d",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-opus-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
