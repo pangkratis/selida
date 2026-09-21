@@ -1153,3 +1153,57 @@ protection), a batch of internal-looking `SECURITY DEFINER` functions that are e
 RPC endpoints and probably shouldn't be, and `create_user_profile` accepting an arbitrary `p_id`
 from even anonymous callers. None of #0c is fixed yet, unlike #0b — read that section before
 assuming the whole security pass is complete.
+**Update 2026-09-19, later same day**: #0c WAS fixed (`migration_14_lock_down_internal_functions.sql`)
+except the leaked-password-protection toggle, which turned out to be Pro-plan-gated. See
+`issues-opportunities.md` #0c for the current, accurate status — this paragraph is left as-written
+to show the audit's original findings; don't take "None of #0c is fixed yet" above at face value.
+
+---
+
+## Play Store Deployment (started 2026-09-21)
+
+### Current state, verified live (not assumed)
+- **Privacy policy is live**: `https://pangkratis.github.io/selida/privacy.html` (HTTP 200,
+  confirmed via curl) — GitHub Pages, no workflow file needed (repo-settings "deploy from
+  branch"). This is the URL to paste into Play Console's store listing.
+- **App icons**: all present and correctly sized — `icon.png` 1024×1024, Android adaptive icon
+  layers (foreground/background/monochrome) at 512×512/512×512/432×432, favicon 48×48.
+- **Package identity**: `com.selida.app`, consistent iOS/Android, set in `app.json`.
+- **No Google Sign-In complication**: `plugins` has a commented-out `withGoogleSignInAndroid`
+  entry with zero live call sites (grepped `app/`, `services/`, `components/` — nothing). Dead,
+  not integrated. No OAuth consent screen / SHA fingerprint step needed unless this gets revived.
+- **No explicit `android.permissions`** in app.json — matches the privacy policy's claim of no
+  camera/location/contacts access. Don't add permissions without updating that policy to match.
+- **Managed workflow**: `android/` and `ios/` folders exist locally (from a prior `expo prebuild`)
+  but are gitignored — not committed, regenerated on demand. Not bare workflow.
+- **`eas.json` added 2026-09-21** — `preview` profile (internal APK) + `production` profile
+  (app-bundle/AAB, required format for Play Store, `autoIncrement: true` for versionCode via
+  `appVersionSource: "remote"` rather than hand-tracking it in app.json). No `development`
+  profile — deliberately, since this project runs via plain Expo Go, not `expo-dev-client`
+  (`MEMORY.md` note); adding a dev-client profile would need that package installed first.
+- **EAS CLI logged in** as `pangkratis` (confirmed via `eas whoami`).
+- **NOT yet done**: `eas init` — creates the actual EAS project + writes `extra.eas.projectId`
+  into the resolved config. **This needs to be run interactively by the user in their own
+  terminal** — it prompts "Would you like to create a project for @pangkratis/selida?" and the
+  sandboxed shell here has no readable stdin/TTY to answer that prompt. Not attempted as a
+  workaround; `eas init --non-interactive` also doesn't support creating a NEW project (only
+  linking an existing one via `--id`).
+
+### What's still Play-Console-side (needs the user directly, not code)
+- Google Play Console developer account ($25 one-time, their payment/identity — can't be done
+  from here).
+- **Data safety form** — must match `docs/privacy.html` exactly (account info, reading activity,
+  search terms + result counts, anonymous usage/diagnostics data added 2026-09-21). Draft this
+  together once the console is open; getting it wrong is a common rejection reason.
+- Store listing assets: feature graphic (1024×500), phone screenshots, short/full description,
+  IARC content rating questionnaire.
+- **Google's closed-testing requirement**: new apps need ≥12 testers for 14 days in closed
+  testing before production release is allowed — confirmed current policy, not optional. Adds
+  ~2 weeks to the timeline regardless of code readiness; plan around this, don't discover it late.
+
+### Order of operations once the user runs `eas init`
+1. `eas build --profile production --platform android` (or `preview` first for a sideload-test
+   APK before committing to a store-bound AAB)
+2. Play Console: create app, fill data safety form + listing content, start closed testing
+3. After 14 days + 12 testers: promote to production, or `eas submit --platform android` if a
+   Play Console API service-account key is set up for automated submission

@@ -201,6 +201,25 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   real errors go through `logError`. `console.*` is production-visible in React Native release
   builds by default — it is NOT stripped automatically.
 
+### 0j. Free-tier DB size headroom check (2026-09-21) — no action needed yet
+- Asked whether the new logging tables would strain the free plan before first users. Measured
+  live rather than guessed: total DB was 108 MB, of which **~95 MB is the `books` catalog +
+  genre/category tables — fixed cost, doesn't grow with users**. Free tier cap is 500 MB
+  (confirmed via supabase.com/pricing, 2026-09-21), so ~400 MB of real headroom exists regardless
+  of user count.
+- `userActivity` measured at **~910 bytes/row including indexes** (208 KB / 234 rows) — used as
+  the working estimate for `appEvents` too, similar column shape. At realistic first-cohort
+  volume (tens of users, not all daily-active) that's low single-digit MB/month — not a concern.
+  MAU (50k) and egress (5 GB) aren't close to relevant at this scale either; DB size is the only
+  binding free-tier constraint.
+- **The real gap, still open**: `appEvents`/`errorLogs`/`userActivity` have no retention policy —
+  rows accumulate forever. Fine now; becomes relevant if usage actually grows, since `books` is
+  flat but logs compound. **User's call (2026-09-21): defer this — plans to upgrade to Pro before
+  it becomes a real constraint, so no pruning job needed for now.** Revisit if usage grows
+  meaningfully before that upgrade happens, or if `pg_size_pretty(pg_database_size(...))`
+  approaches ~350-400 MB. `userActivity` should stay unpruned regardless — it feeds
+  recommendations and `bookStats`, unlike the two purely-diagnostic tables.
+
 ### 1. Debug log in bookStats.ts — FIXED (2026-06-25)
 - bookStats.ts is now no-op stubs; all stat logic moved to Postgres triggers
 - Debug log is gone along with the function bodies
