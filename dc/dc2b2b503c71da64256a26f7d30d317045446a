@@ -1,0 +1,33 @@
+.claude/memory/issues-opportunities.md
+  s_d6d65f87308408::t_a18d0034b88f92 170-195,203
+  s_d6d65f87308408::t_e713823dcec16d 221-227
+  s_d6d65f87308408::t_d6a54e5d84daf6 345-346
+  s_d6d65f87308408::t_4ac97da9f708e9 125-147,160-168
+  s_d6d65f87308408::t_ca24522cde958a 148-159
+  s_d6d65f87308408::t_cb762bab5dfd33 196-202
+  s_d6d65f87308408::t_512d067bafa9bb 99-124,169
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_395668329c8bd6 330-331,334-336,339-340
+  s_d6d65f87308408::t_8e97a35c2a557c 332-333,373-384
+  s_d6d65f87308408::t_0067d09ee07260 343-372
+  s_d6d65f87308408::t_86978a15e7a447 999-1010
+  s_d6d65f87308408::t_fb12d35f1e924d 569
+  s_d6d65f87308408::t_55513ca461b088 985-998
+  s_d6d65f87308408::t_0396e258a592a3 385
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "dcdc2b2b503c71da64256a26f7d30d317045446a",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-opus-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
