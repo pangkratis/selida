@@ -1,0 +1,19 @@
+app.json
+  s_cdc45a84cfee7c::t_4eaee3509b012e 48-54,56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "acecbe6c485d99d5151b5eea775e20bbd320828c",
+  "prompts": {},
+  "sessions": {
+    "s_cdc45a84cfee7c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_cdc45a84cfee7c",
+        "model": "unknown"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
