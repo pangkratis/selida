@@ -327,12 +327,61 @@ hex). Uses the app's own theme tokens throughout.
 - All stat updates handled by Postgres triggers: fn_activity_sync_views, fn_reading_list_sync_stats, fn_sync_book_popularity
 - The old debug log ("pangkratis: ") is gone since the function body is empty
 
-### userActivity.ts — Simple, Fire-and-Forget
-- logUserActivity(userId, bookId, action, context)
-- Actions: view_details, add_to_reading, add_to_wishlist, mark_completed, remove_from_list
+### userActivity.ts — Book events only (2026-09-21)
+- `logUserActivity(userId, bookId, action, context, metadata?)` — book-attached events only.
+  `BookAction` union: view_details, add_to_reading, add_to_wishlist, mark_completed,
+  remove_from_list (previously a plain `string` — the union was a tracked tech-debt item, now done)
+- **App-level events are NOT here** — they're in `services/analytics.ts` → `appEvents`. A brief
+  intermediate version (migration_15) put app_open/onboarding_complete/search_performed in this
+  table with a null bookId; migration_16 moved them out. Don't add non-book events back here.
 - Contexts: home_recommendations, explore_recommendations, continue_reading, search_results,
   category_results, book_details, list_recommendations, list_trending
+- `metadata` jsonb column (migration_15) is available for book events, currently unused by any
+  call site.
 - Errors logged but not thrown
+
+### analytics.ts + deviceId.ts — App-level funnel events (added 2026-09-21, second pass)
+- **Why a separate table from `userActivity`**: `userActivity."userId"` is `not null references
+  users(id)` and its RLS is `using (auth.uid() = "userId")`, so it can only ever describe
+  signed-in users. That made the biggest MVP funnel question unanswerable — people who open the
+  app, hit signup, and leave. Loosening that table was rejected: it would give up the security
+  property verified in the 2026-09-19 RLS audit, on a table that also carries the `bookStats`
+  trigger and feeds recommendations. So app events moved to their own `appEvents` table.
+  **migration_15's three app events were moved out of `userActivity` by migration_16** —
+  `userActivity` is book-only again.
+- `services/deviceId.ts` — `getDeviceId()`, a random UUID (expo-crypto) persisted in SecureStore,
+  localStorage on web (follows the same platform split as `hooks/use-storage-state.ts`).
+  **NOT a device fingerprint** — nothing about the hardware is read; it dies on uninstall.
+  Caches the *promise*, not the value, so concurrent startup callers can't race and mint two ids.
+  Returns null if storage is unavailable (private browsing, locked keychain) and callers skip.
+- `services/analytics.ts` — `logEvent(event, context?, metadata?)`, `logSearch(query, count)`,
+  `logScreenView(path)`. `userId` is resolved internally from the cached session, never passed
+  in, so a caller can't misattribute an event and pre-auth events correctly record null.
+  `logScreenView` drops consecutive duplicate paths (expo-router re-reports on param changes).
+- **Event taxonomy**: app_open (context `cold_launch`|`resume`), screen_view,
+  signup_started/completed/failed, login_started/completed/failed, onboarding_started,
+  onboarding_gate_reached, onboarding_complete, search_performed.
+- **`app_open` fires on resume, not just launch** — an `AppState` listener in `_layout.tsx` with
+  a 30-min session gap. The first version (migration_15) fired once per cold launch only, which
+  **undercounted DAU**, since mobile users resume far more often than they relaunch. Don't
+  regress this.
+- **The onboarding gate is the key funnel**: the finish button only renders at
+  `selectedSubcategories.length >= 3`. `onboarding_started` → `onboarding_gate_reached` measures
+  people stuck below 3 chips; `gate_reached` → `complete` measures people who saw the button and
+  didn't press it.
+
+### errorLog.ts — Self-hosted crash/error reporting (added 2026-09-21)
+- `logError(error, context, { fatal })` and `reportError(context)` (curried, for `.catch(...)`)
+- Writes to the `errorLogs` table in our OWN Supabase — deliberately NOT Sentry/Bugsnag, so
+  `docs/privacy.html`'s "no crash-reporting trackers" claim stays literally true and no new data
+  processor / App Store privacy label is introduced. **This was an explicit user decision
+  (2026-09-21), not a default — don't swap in a third-party SDK without revisiting it.**
+- Never throws (a throwing error-reporter would mask the error it was reporting)
+- Reads userId from `supabase.auth.getSession()` (local cache, no network round-trip — the error
+  being reported may itself be a network failure)
+- **Flood protection**: same context+message deduped within 60s, hard cap 25 reports per app
+  launch. A render-loop error would otherwise write thousands of rows.
+- Truncates to match the DB check constraints (message 2000 / stack 10000 / context 200)
 
 ### biblionet-api.ts / catalog-ingestion.ts — Biblionet calls go through an Edge Function proxy (2026-09-19)
 - **Root issue this fixed**: both files (plus an inline block in `app/catalog-ingestion.tsx`) used
@@ -517,6 +566,7 @@ Biblionet API surface, testing all 4 previously-unused endpoints (`get_contribut
 | HapticTab           | Custom tab button with haptics       | Tab navigator                  |
 | AnimatedLogo        | SVG fan-mark + wordmark, Reanimated  | SplashOverlay (login uses static PNG instead) |
 | SplashOverlay       | Fullscreen brand intro, gates on intro+session | _layout.tsx Root() |
+| ErrorBoundary       | Class component (no hook equivalent for `componentDidCatch`); themed fallback + "Try again" that remounts the subtree via a bumped key. Reports to `errorLogs` with `fatal: true`, appending React's component stack to the JS stack. Mounted OUTSIDE SessionProvider in _layout.tsx so provider crashes are caught too | _layout.tsx RootLayout() |
 | AuthBackgroundCircles | 8 absolutely-positioned pastel circles, `mixHex(theme.background, AccentPalette[i], 0.14)` | login, signup |
 | FloatingField / FloatingFieldShell | Label-inside-field input with focus ring + optional eye toggle; Shell is the bare visual container reused for non-TextInput fields (signup's country trigger) | login, signup |
 
@@ -932,7 +982,32 @@ lastSessionStart timestamptz, isReading, addedAt
 userId, bookId, durationSeconds, createdAt
 
 ### userActivity
-userId, bookId, action, context, createdAt
+userId, bookId, action, context, metadata (jsonb, added migration_15), createdAt
+- Book events only. RLS `for all using (auth.uid() = "userId")` — signed-in users, own rows.
+
+### appEvents (added migration_16, 2026-09-21)
+id, deviceId (not null), userId (nullable), event, context, metadata (jsonb), platform,
+appVersion, createdAt
+- App-level funnel/retention events. **Keyed by an anonymous deviceId so pre-signup behaviour is
+  visible** — `userId` fills in once known, and the two stitch together on deviceId (the standard
+  anonymous → identified pattern).
+- Insert-only, no SELECT policy; `anon` CAN insert (that's the point). With-check
+  `"userId" is null or "userId" = auth.uid()` prevents misattribution. Length caps on
+  deviceId/event/context because anon can write here.
+- **Verified live 2026-09-21** via curl with the real anon key: anon insert (no userId) → 201;
+  anon select → `[]`; forged userId → 42501; 100-char event name → 23514.
+
+### errorLogs (added migration_15, 2026-09-21)
+id, userId (nullable, `on delete set null` — pre-auth crashes have no user, and a report should
+outlive the account), message, stack, context, fatal, platform, appVersion, createdAt
+- **Insert-only from the client, no SELECT policy at all** — same shape as `feedback`. Read it via
+  the Supabase dashboard / service_role, never through the app.
+- `anon` CAN insert (deliberate — pre-auth crashes on the login screen are exactly the ones you
+  most need). The with-check `"userId" is null or "userId" = auth.uid()` stops report forgery.
+- Check constraints cap message/stack/context length — these exist *because* anon can insert, so
+  the public key in the bundle can't be used to write unbounded text into the table.
+- **Verified live 2026-09-21** with the real anon key via curl: anon insert → 201; anon select →
+  `[]`; forged userId → 42501 RLS rejection; 2500-char message → 23514 check-constraint rejection.
 
 ### feedback
 message, platform, createdAt

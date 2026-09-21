@@ -96,6 +96,111 @@ same day in a follow-up pass via `sql/migration_14_lock_down_internal_functions.
   of a dedicated schema — best-practice only, not a real vulnerability, and moving extension
   schemas is a riskier change for marginal benefit.
 
+### 0d. No error tracking or crash recovery at all — FIXED (2026-09-21)
+- Pre-launch observability review found: **zero ErrorBoundary anywhere in the app**, 94
+  `console.*` calls and 61 `catch` blocks, none of which go anywhere retrievable in a release
+  build. One bad render (malformed book field, undefined coverUrl) would white-screen the whole
+  app with no recovery path and no report.
+- **Decision (user's, 2026-09-21): self-hosted, NOT Sentry.** `docs/privacy.html` explicitly
+  promised "No analytics SDKs, no advertising networks, no crash-reporting trackers" — adding a
+  third-party reporter would have meant rewriting that section and declaring a new data processor
+  on the App Store privacy labels. Trade-off accepted knowingly: no stack symbolication, no error
+  grouping, no alerting — reads are manual via the Supabase dashboard. Revisit only with the user.
+- **Fixed** via `sql/migration_15_error_logs_and_activity_metadata.sql` (applied live + verified),
+  `services/errorLog.ts`, `components/error-boundary.tsx`, wired in `app/_layout.tsx`.
+- Privacy policy updated in the same pass (new "Diagnostics" row + search-terms wording in the
+  collection table, effective date bumped to 21 September 2026) — the point of going self-hosted
+  was that the policy stays true, so **keep it in sync if this area changes again**.
+
+### 0e. No funnel/retention analytics — FIXED (2026-09-21)
+- `userActivity` already logged book interactions well (with a genuinely useful `context`
+  dimension), but could log nothing else: the service early-returned unless a `bookId` was
+  present, so onboarding drop-off, app opens and searches were all invisible.
+- **Fixed**: `metadata jsonb` column added to `userActivity`; `logAppEvent` + `logSearch` added
+  alongside `logUserActivity`; action types converted from plain `string` to `BookAction` /
+  `AppAction` unions (this also closes the "Type the userActivity actions as union type" item
+  under Architecture Improvements below). New events wired: `app_open` (_layout.tsx, once per
+  launch via a ref), `onboarding_complete` (onboarding.tsx, with subcategory + book counts),
+  `search_performed` (books-grid.tsx, with query + result count).
+- **Superseded same day by 0f** — a review of "is this enough to know where users got stuck?"
+  found it wasn't, and the app-level events moved to a new `appEvents` table.
+
+### 0f. Funnel blind spots found reviewing 0e — FIXED (2026-09-21)
+Asked whether 0e's events could actually answer "where did our first users get stuck". They
+couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `services/analytics.ts`
++ `services/deviceId.ts`):
+- **Pre-account users were entirely invisible.** Every event required a `userId`, so anyone who
+  opened the app, reached signup and left produced zero rows — plausibly the largest MVP drop-off.
+  Fixed with an anonymous `deviceId` and the `appEvents` table. Now: signup_started/completed/
+  failed, login_started/completed/failed.
+- **The onboarding 3-chip gate was invisible.** Only completion was logged, so "picked 2 chips and
+  gave up" looked identical to "never opened the screen". Added onboarding_started +
+  onboarding_gate_reached.
+- **`app_open` undercounted DAU** — fired once per cold launch, no `AppState` listener, so
+  background→resume (the common mobile pattern) never logged. Now fires on resume after a 30-min
+  gap. This was a genuine defect in 0e, not a missing nice-to-have.
+- **No screen views** — a dead tab was indistinguishable from a tab nobody tapped a book in.
+  Added `logScreenView` via `usePathname()` in the root layout.
+- Privacy policy updated again in the same pass (new "Usage" row covering the anonymous
+  identifier and screen views; the "three categories, all tied to your account" line was now
+  factually wrong, since pre-auth events are tied to no account, and was rewritten).
+
+### 0g. Nothing reads the analytics back — PARTLY ADDRESSED (2026-09-21)
+- **Done**: `sql/analytics/` — `signup-funnel.sql`, `zero-result-searches.sql`,
+  `errors-by-context.sql`, `retention.sql`, plus a README with run instructions. All four were
+  executed against the live DB before committing, so they're syntax-verified, not just plausible.
+  Run via `supabase db query --linked -f <file>` or the dashboard SQL editor.
+- **One statement per file on purpose** — `supabase db query` returns only the LAST statement's
+  rows, so a two-query file silently hides the first. Keep that rule when adding more.
+- **Still open**: no in-app admin screen. Reading still means running SQL by hand. That's a
+  deliberate deferral, not an oversight — the client key can't read these tables by design, so an
+  admin screen needs an Edge Function with service_role.
+
+### 0g (original note). Nothing reads the analytics back
+- `appEvents`, `userActivity` and `errorLogs` are all insert-only with no SELECT policy by design,
+  so there is no in-app way to see any of it. Reading means hand-written SQL in the Supabase
+  dashboard.
+- Nothing is broken; it's just that data nobody looks at answers no questions. Worth either a
+  small admin screen (service_role via an Edge Function — the client key deliberately can't read
+  these tables) or, cheaper, a saved set of funnel/error SQL queries kept in `sql/`.
+- Highest-value queries to write first: signup funnel by day (appEvents), onboarding
+  started→gate→complete drop-off, zero-result searches ranked by frequency, errors grouped by
+  `context` over the last 7 days.
+
+### 0h. console.error sweep → errorLog — DONE (2026-09-21)
+- All production error paths now route through `logError` from `services/errorLog.ts`, so they
+  land in `errorLogs` instead of vanishing in a release build. ~30 real call sites converted
+  across index.tsx, profile.tsx, settings.tsx, book-details.tsx, book-list.tsx, books-grid.tsx,
+  feedback-button.tsx, recommendations.ts, biblionet-api.ts, userActivity.ts.
+- Context naming convention: `<file-stem>/<operation>` — e.g. `home/recommendations`,
+  `settings/deleteAccount`, `book-details/addToReadingList`. Keep this; `errors-by-context.sql`
+  groups on it.
+- **~15 `.catch(console.error)` handlers were dead code and were deleted, not converted** —
+  `logUserActivity` and `incrementBookView` both swallow their own errors and never reject, so
+  those handlers could never fire. (`incrementBookView` is a no-op stub; see bookStats.ts.)
+- **Three deliberate exclusions, each documented in-file — don't "finish the job" later without
+  reading why**:
+  - `hooks/use-storage-state.ts` — `logError` resolves the user via
+    `supabase.auth.getSession()`, which reads this very storage layer; reporting a storage
+    failure would re-enter the thing that just failed.
+  - `services/catalog-ingestion.ts` + `app/catalog-ingestion.tsx` — `__DEV__`-only, loops over
+    thousands of books; would flood `errorLogs` and burn the 25-per-launch cap on admin noise.
+  - `services/errorLog.ts` itself — its `if (__DEV__) console.error` is the local dev echo.
+
+### 0i. Session tokens were being written to device logs — FIXED (2026-09-21)
+- Found during the 0h sweep. `app/_layout.tsx` logged the whole `session` object on **every
+  navigation change**. Supabase's `Session` type carries `access_token` AND `refresh_token`, so
+  live credentials were going into iOS/Android device logs and, on web, the browser console.
+- Fixed by logging `hasSession: !!session` instead. The log line is kept — it's useful — it just
+  no longer carries the credential.
+- **Also done (2026-09-21)**: all 7 remaining `[Layout]`/`[Auth]` debug `console.log` lines in
+  `_layout.tsx` (5) and `ctx.tsx` (2) are now `if (__DEV__)`-guarded, so nothing — including the
+  user uids `ctx.tsx` logs — reaches production device logs. The lines were kept rather than
+  deleted because they're genuinely useful when debugging the auth/onboarding redirect flow.
+- **Convention going forward**: debug `console.log` in app code should be `__DEV__`-guarded;
+  real errors go through `logError`. `console.*` is production-visible in React Native release
+  builds by default — it is NOT stripped automatically.
+
 ### 1. Debug log in bookStats.ts — FIXED (2026-06-25)
 - bookStats.ts is now no-op stubs; all stat logic moved to Postgres triggers
 - Debug log is gone along with the function bodies
@@ -113,10 +218,13 @@ same day in a follow-up pass via `sql/migration_14_lock_down_internal_functions.
 - Should be extracted to: `constants/utils.ts` and imported everywhere
 - Fix: create shared utility, update all 3 imports
 
-### 4. No user-facing error feedback
-- All Supabase errors use `console.error` only
-- Users see no toast, alert, or inline message when operations fail
-- Fix: add a lightweight toast/snackbar system
+### 4. No user-facing error feedback — STILL OPEN (narrowed 2026-09-21)
+- The *fatal* case is now handled: `ErrorBoundary` shows a themed "Something went wrong" screen
+  with a retry (see 0d above). What remains is the non-fatal case.
+- Most Supabase errors are still swallowed into `console.error` / `logError` with no UI at all —
+  a failed "add to wishlist" looks like nothing happened.
+- Fix: add a lightweight toast/snackbar system, then pair it with the existing `logError` calls
+  (log for us, toast for the user) rather than replacing them.
 
 ### 5. Categories hardcoded in explore.tsx
 - `HARDCODED_CATEGORIES` array (9 categories) defined directly in explore.tsx
@@ -234,9 +342,8 @@ same day in a follow-up pass via `sql/migration_14_lock_down_internal_functions.
 - `mapDocToBook` is defined in books-grid.tsx but useful elsewhere
 - Should live in a shared `utils/book-utils.ts`
 
-### Type the userActivity actions as union type
-- Currently action is a plain string in userActivity.ts
-- Should be: `type UserAction = 'view_details' | 'add_to_reading' | 'add_to_wishlist' | 'mark_completed' | 'remove_from_list'`
+### Type the userActivity actions as union type — DONE (2026-09-21)
+- Now `BookAction` | `AppAction` unions exported from `services/userActivity.ts` — see item 0e above.
 
 ### Extract large screen components
 - profile.tsx (rewritten 2026-09-02 as hero + shelves, see project-state.md) still keeps its
