@@ -1,3 +1,4 @@
+import { useSession } from '@/app/ctx';
 import { ThemedText } from '@/components/themed-text';
 import { AccentPalette, BorderRadius, Colors, roundedFont } from '@/constants/theme';
 import { ContributorSyncResult, IngestionResult, SubSyncResult, clearBookDatabase, readCursor, resetCursor, runCatalogIngestion, syncContributors, syncSubcategories } from '@/services/catalog-ingestion';
@@ -192,6 +193,7 @@ function BookDetailModal({ book, onClose }: { book: any; onClose: () => void }) 
 /* ── Main Screen ───────────────────────────────────────────────────── */
 
 export default function CatalogIngestionScreen() {
+  const { user } = useSession();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
@@ -577,6 +579,19 @@ export default function CatalogIngestionScreen() {
       </View>
     </View>
   );
+
+  // Defense in depth, not the real gate — the underlying RLS (migration_17)
+  // is what actually stops a non-admin from writing to `books`/
+  // `ingestion_cursor`; this just stops the admin UI itself from rendering
+  // for anyone who navigates here directly. Placed after every hook above
+  // so rules-of-hooks still holds.
+  if (!(user as any)?.isAdmin) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ThemedText style={{ color: theme.secondary }}>Not authorized</ThemedText>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={['bottom']} style={[styles.container, { backgroundColor: theme.background }]}>
