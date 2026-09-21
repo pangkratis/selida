@@ -40,7 +40,11 @@
             "backgroundColor": "#1F1C18"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-localization",
+      "expo-router",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
