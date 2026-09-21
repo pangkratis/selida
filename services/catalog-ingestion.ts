@@ -6,6 +6,13 @@
  * dashboard), not just from the one device that last ran it.
  * Uses Supabase upsert so 100 books = 1 round-trip.
  * Guarded by __DEV__ — never runs in production builds.
+ *
+ * NOTE: console.* here is intentional and was deliberately left out of the
+ * services/errorLog sweep. This file only ever runs in development, and it
+ * loops over thousands of books — routing its failures into `errorLogs`
+ * would flood the table and burn the reporter's per-launch cap on admin
+ * ingestion noise, hiding real user-facing errors. The admin screen already
+ * surfaces these in its own on-screen log.
  */
 
 import { supabase } from './supabaseConfig';

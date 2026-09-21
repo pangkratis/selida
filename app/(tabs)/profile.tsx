@@ -5,6 +5,7 @@ import { TAB_BAR_CONTENT_CLEARANCE } from '@/constants/tab-bar';
 import { AccentPalette, BorderRadius, Colors, Spacing, mixHex, roundedFont, toTransparent } from '@/constants/theme';
 import { ReadingListItem } from '@/constants/types';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { logError } from '@/services/errorLog';
 import { supabase } from "@/services/supabaseConfig";
 import { logUserActivity } from '@/services/userActivity';
 import { Ionicons } from '@expo/vector-icons';
@@ -219,7 +220,7 @@ export default function ProfileScreen() {
             );
             setReadingList(itemsWithDetails as ReadingListItem[]);
         } catch (err) {
-            console.error('Error loading reading list:', err);
+            void logError(err, 'profile/loadReadingList');
         } finally {
             setLoading(false);
         }
@@ -244,7 +245,7 @@ export default function ProfileScreen() {
 
     const getBookDetails = async (bookId: string) => {
         const { data, error } = await supabase.from('books').select('*').eq('id', bookId).maybeSingle();
-        if (error) console.error('getBookDetails error:', error);
+        if (error) void logError(error, 'profile/getBookDetails');
         if (data) return data;
         return { id: bookId };
     };
@@ -260,7 +261,7 @@ export default function ProfileScreen() {
     const navigateToBook = (item: any) => {
         const bookId = item.bookId || item.id;
         if (user?.uid) {
-            logUserActivity(user.uid, bookId, "view_details", "profile").catch(console.error);
+            logUserActivity(user.uid, bookId, "view_details", "profile");
         }
         const sanitizeForJson = (value: any): any => {
             if (value === null || value === undefined) return value;
@@ -306,17 +307,17 @@ export default function ProfileScreen() {
             if (newStatus === null) {
                 const { error } = await supabase.from('readingList').delete().eq('userId', user.uid).eq('bookId', bookId);
                 if (error) throw error;
-                logUserActivity(user.uid, bookId, 'remove_from_list', 'profile').catch(console.error);
+                logUserActivity(user.uid, bookId, 'remove_from_list', 'profile');
             } else {
                 const { error } = await supabase.from('readingList').update({ status: newStatus }).eq('userId', user.uid).eq('bookId', bookId);
                 if (error) throw error;
                 const action = newStatus === 'reading' ? 'add_to_reading'
                     : newStatus === 'completed' ? 'mark_completed'
                     : 'add_to_wishlist';
-                logUserActivity(user.uid, bookId, action, 'profile').catch(console.error);
+                logUserActivity(user.uid, bookId, action, 'profile');
             }
         } catch (e) {
-            console.error('Error updating status:', e);
+            void logError(e, 'profile/updateStatus');
         }
     };
 

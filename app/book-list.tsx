@@ -4,6 +4,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, toTransparent } from '@/constants/theme';
 import { Book } from '@/constants/types';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { logError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
 import { getRecommendationsForUser, getTrendingBooksByViews } from '@/services/recommendations';
 import { logUserActivity } from '@/services/userActivity';
@@ -107,7 +108,7 @@ export default function BookListScreen() {
                 shownIdsRef.current = new Set(result.map(b => b.id));
                 setBooks(result);
             } catch (error) {
-                console.error('Error fetching book list:', error);
+                void logError(error, 'book-list/fetch');
             } finally {
                 setLoadingInitial(false);
             }
@@ -140,7 +141,7 @@ export default function BookListScreen() {
             newBooks.forEach(b => shownIdsRef.current.add(b.id));
             setBooks(prev => [...prev, ...newBooks]);
         } catch (e) {
-            console.error('Error loading more books:', e);
+            void logError(e, 'book-list/loadMore');
         } finally {
             loadingMoreRef.current = false;
             setLoadingMore(false);
@@ -149,7 +150,7 @@ export default function BookListScreen() {
 
     const handleBookPress = async (item: Book) => {
         if (user?.uid) {
-            logUserActivity(user.uid, item.id, 'view_details', `list_${type}`).catch(console.error);
+            logUserActivity(user.uid, item.id, 'view_details', `list_${type}`);
         }
         router.push({
             pathname: '/book-details',

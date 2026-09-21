@@ -49,7 +49,7 @@ export function SessionProvider(props: React.PropsWithChildren) {
         await new Promise(res => setTimeout(res, 1500));
         return fetchUserProfile(userId, retries - 1);
       }
-      console.log('[Auth] User profile not found in DB for uid:', userId);
+      if (__DEV__) console.log('[Auth] User profile not found in DB for uid:', userId);
       setUser(null);
       return;
     }
@@ -84,7 +84,7 @@ export function SessionProvider(props: React.PropsWithChildren) {
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      console.log('[Auth] onAuthStateChange:', _event, 'uid:', newSession?.user?.id ?? 'null');
+      if (__DEV__) console.log('[Auth] onAuthStateChange:', _event, 'uid:', newSession?.user?.id ?? 'null');
       setSession(newSession);
       if (newSession) {
         await fetchUserProfile(newSession.user.id);

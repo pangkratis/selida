@@ -5,6 +5,7 @@ import { AccentPalette, Colors, roundedFont, toTransparent } from '@/constants/t
 import { Book } from '@/constants/types';
 import { HomeScrollContext, HomeScrollContextValue, HomeScrollListener } from '@/hooks/home-scroll-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { logError, reportError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
 import { getRecommendationsForUser, getTrendingBooksByViews, invalidateRecommendationsCache } from '@/services/recommendations';
 import { logUserActivity } from '@/services/userActivity';
@@ -186,7 +187,7 @@ export default function HomeScreen() {
     }
     supabase.from('readingList').select('bookId, status, addedAt').eq('userId', uid).limit(50)
       .then(({ data, error }) => {
-        if (error) { console.error(error); return; }
+        if (error) { void logError(error, 'home/readingList'); return; }
         const entries = (data ?? []) as ReadingEntry[];
         readingListCache.set(uid, { entries, ts: Date.now() });
         setReadingListEntries(entries);
@@ -201,7 +202,7 @@ export default function HomeScreen() {
     }
     computeDynamicPlan(user.uid, readingListEntries, refreshKey)
       .then(setDynamicPlan)
-      .catch(console.error);
+      .catch(reportError('home/computeDynamicPlan'));
   }, [user?.uid, readingListEntries, refreshKey]);
 
   const handleScroll = useCallback(({ nativeEvent }: any) => {
@@ -341,7 +342,7 @@ function RecommendationSection({ refreshKey, readingListEntries }: { refreshKey:
         const books = await getRecommendationsForUser(user.uid, 50, undefined, preloaded);
         setRecommendations(books);
       } catch (e) {
-        console.error('Error fetching recommendations:', e);
+        void logError(e, 'home/recommendations');
       } finally {
         setLoading(false);
       }
@@ -362,7 +363,7 @@ function RecommendationSection({ refreshKey, readingListEntries }: { refreshKey:
         books={recommendations}
         keyPrefix="home-recommendation"
         onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_recommendations').catch(console.error);
+          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_recommendations');
           router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
         }}
       />
@@ -418,7 +419,7 @@ function TrendingSection({ refreshKey, readingListEntries }: { refreshKey: numbe
         const books = await getTrendingBooksByViews(25);
         setTrendingBooks(books);
       } catch (e) {
-        console.error('Error fetching trending books:', e);
+        void logError(e, 'home/trending');
       } finally {
         setLoading(false);
       }
@@ -451,7 +452,7 @@ function TrendingSection({ refreshKey, readingListEntries }: { refreshKey: numbe
             <TouchableOpacity
               style={styles.bookCard}
               onPress={() => {
-                if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_trending').catch(console.error);
+                if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_trending');
                       router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
               }}
             >
@@ -501,7 +502,7 @@ function BecauseYouReadShelf({ seed, readingListEntries }: { seed: BYRSeed; read
           .sort((a: any, b: any) => (b.popularityCount || 0) - (a.popularityCount || 0)) as Book[];
         byrShelfCache.set(cacheKey, { books: result, ts: Date.now() });
         setBooks(result);
-      } catch (e) { console.error(e); }
+      } catch (e) { void logError(e, 'home/becauseYouRead'); }
       finally { setLoading(false); }
     })();
   }, [seed.bookId, seed.category, user?.uid]);
@@ -522,7 +523,7 @@ function BecauseYouReadShelf({ seed, readingListEntries }: { seed: BYRSeed; read
         books={books}
         keyPrefix={`byr-${seed.bookId}`}
         onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_because_you_read').catch(console.error);
+          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_because_you_read');
           router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
         }}
       />
@@ -560,7 +561,7 @@ function MoreFromAuthorShelf({ seed, readingListEntries }: { seed: MFASeed; read
           .sort((a: any, b: any) => (b.popularityCount || 0) - (a.popularityCount || 0)) as Book[];
         mfaShelfCache.set(cacheKey, { books: result, ts: Date.now() });
         setBooks(result);
-      } catch (e) { console.error(e); }
+      } catch (e) { void logError(e, 'home/moreFromAuthor'); }
       finally { setLoading(false); }
     })();
   }, [seed.author, user?.uid]);
@@ -581,7 +582,7 @@ function MoreFromAuthorShelf({ seed, readingListEntries }: { seed: MFASeed; read
         books={books}
         keyPrefix={`mfa-${seed.author}`}
         onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_more_from_author').catch(console.error);
+          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_more_from_author');
           router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
         }}
       />
@@ -619,7 +620,7 @@ function PopularInCategoryShelf({ category, readingListEntries }: { category: st
           .sort((a: any, b: any) => (b.popularityCount || 0) - (a.popularityCount || 0)) as Book[];
         picShelfCache.set(cacheKey, { books: result, ts: Date.now() });
         setBooks(result);
-      } catch (e) { console.error(e); }
+      } catch (e) { void logError(e, 'home/popularCategory'); }
       finally { setLoading(false); }
     })();
   }, [category, user?.uid]);
@@ -640,7 +641,7 @@ function PopularInCategoryShelf({ category, readingListEntries }: { category: st
         books={books}
         keyPrefix={`pic-${category}`}
         onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_popular_category').catch(console.error);
+          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_popular_category');
           router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
         }}
       />
@@ -676,7 +677,7 @@ function QuickReadsSection({ refreshKey, readingListEntries }: { refreshKey: num
           .sort((a: any, b: any) => (b.popularityCount || 0) - (a.popularityCount || 0)) as Book[];
         quickReadsCache.set(cacheKey, { books: result, ts: Date.now() });
         setBooks(result);
-      } catch (e) { console.error(e); }
+      } catch (e) { void logError(e, 'home/quickReads'); }
       finally { setLoading(false); }
     })();
   }, [user?.uid, refreshKey]);
@@ -696,7 +697,7 @@ function QuickReadsSection({ refreshKey, readingListEntries }: { refreshKey: num
         books={filtered}
         keyPrefix="home-quick-reads"
         onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_quick_reads').catch(console.error);
+          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_quick_reads');
           router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
         }}
       />
@@ -751,7 +752,7 @@ function RecentlyViewedSection({ refreshKey, readingListEntries }: { refreshKey:
         recentlyViewedCache.set(user.uid, { books: result, ts: Date.now() });
         setBooks(result);
       } catch (e) {
-        console.error('Error fetching recently viewed:', e);
+        void logError(e, 'home/recentlyViewed');
       } finally {
         setLoading(false);
       }
@@ -774,7 +775,7 @@ function RecentlyViewedSection({ refreshKey, readingListEntries }: { refreshKey:
         books={filtered}
         keyPrefix="home-recently-viewed"
         onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_recently_viewed').catch(console.error);
+          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_recently_viewed');
           router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
         }}
       />
@@ -810,7 +811,7 @@ function NewArrivalsSection({ refreshKey, readingListEntries }: { refreshKey: nu
         newArrivalsCache.set(cacheKey, { books: results, ts: Date.now() });
         setBooks(results);
       } catch (e) {
-        console.error('Error fetching new arrivals:', e);
+        void logError(e, 'home/newArrivals');
       } finally {
         setLoading(false);
       }
@@ -833,7 +834,7 @@ function NewArrivalsSection({ refreshKey, readingListEntries }: { refreshKey: nu
         books={filtered}
         keyPrefix="home-new-arrivals"
         onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_new_arrivals').catch(console.error);
+          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_new_arrivals');
           router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
         }}
       />

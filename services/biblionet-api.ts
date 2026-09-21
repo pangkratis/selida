@@ -1,4 +1,5 @@
 import { Book } from '@/constants/types';
+import { logError } from './errorLog';
 import { supabase } from './supabaseConfig';
 
 const COVER_BASE = 'https://www.biblionet.gr';
@@ -59,14 +60,14 @@ async function postToWebservice(endpoint: string, params: Record<string, string>
     try {
         const { data, error } = await supabase.functions.invoke('biblionet-proxy', { body: { endpoint, params } });
         if (error) {
-            console.error(`Biblionet API error: ${endpoint}`, error);
+            void logError(error, `biblionet/${endpoint}`);
             return [];
         }
         const firstKey = Object.keys(data)[0];
         const raw = data.book_titles ?? data.book ?? data.titles ?? data.Books ?? data[firstKey] ?? [];
         return Array.isArray(raw) ? raw : [];
     } catch (error) {
-        console.error(`Error calling Biblionet ${endpoint}:`, error);
+        void logError(error, `biblionet/${endpoint}`);
         return [];
     }
 }

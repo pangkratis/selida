@@ -7,6 +7,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import i18n, { resolveLanguage } from '@/services/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { logError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -232,7 +233,7 @@ export default function SettingsScreen() {
             const { error } = await supabase.from('users').update({ displayName: trimmed }).eq('id', user.uid);
             if (error) throw error;
         } catch (e) {
-            console.error('Error saving display name:', e);
+            void logError(e, 'settings/saveDisplayName');
         } finally {
             setSavingName(false);
             setEditingName(false);
@@ -247,7 +248,7 @@ export default function SettingsScreen() {
             const { error } = await supabase.from('users').update({ country: country.code, language: country.code === 'GR' ? 'el' : 'en' }).eq('id', user.uid);
             if (error) throw error;
         } catch (e) {
-            console.error('Error updating country:', e);
+            void logError(e, 'settings/updateCountry');
         }
     };
 
@@ -260,7 +261,7 @@ export default function SettingsScreen() {
             if (error) throw error;
             i18n.changeLanguage(resolveLanguage(value));
         } catch (e) {
-            console.error('Error updating language:', e);
+            void logError(e, 'settings/updateLanguage');
         }
     };
 
@@ -282,7 +283,7 @@ export default function SettingsScreen() {
                             if (error) throw error;
                             await signOut();
                         } catch (e) {
-                            console.error('Error deleting account:', e);
+                            void logError(e, 'settings/deleteAccount');
                             setDeletingAccount(false);
                             Alert.alert(t('settingsDeleteAccountError'));
                         }

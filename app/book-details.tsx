@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { AccentPalette, clamp, Colors, Spacing, mixHex, roundedFont } from '@/constants/theme';
 import { Book } from '@/constants/types';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { logError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -84,7 +85,7 @@ export default function BookDetailsScreen() {
         try {
             await upsertBook(book);
         } catch (e) {
-            console.error('Error saving book:', e);
+            void logError(e, 'book-details/saveBook');
             return;
         }
         if (!status) {
@@ -103,14 +104,14 @@ export default function BookDetailsScreen() {
                 { onConflict: 'userId,bookId' }
             );
             if (error) throw error;
-        } catch (error) { console.error("Error adding book to reading list:", error); }
+        } catch (error) { void logError(error, 'book-details/addToReadingList'); }
     };
 
     const removeFromReadingList = async (uid: string, bookId: string) => {
         try {
             const { error } = await supabase.from('readingList').delete().eq('userId', uid).eq('bookId', bookId);
             if (error) throw error;
-        } catch (error) { console.error("Error removing book from reading list:", error); }
+        } catch (error) { void logError(error, 'book-details/removeFromReadingList'); }
     };
 
     const upsertBook = async (book: Book): Promise<void> => {
@@ -127,7 +128,7 @@ export default function BookDetailsScreen() {
             { id, ...bookData, source: 'biblionet', createdAt: new Date().toISOString() },
             { onConflict: 'id' }
         );
-        if (error) console.error('Error upserting book:', error);
+        if (error) void logError(error, 'book-details/upsertBook');
     };
 
     /* ── Derived display values ──────────────────────────────────── */

@@ -1,6 +1,7 @@
 import { useSession } from '@/app/ctx';
 import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { logError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
@@ -71,7 +72,7 @@ export default function FeedbackButton() {
                 setModalVisible(false);
             }, 1800);
         } catch (error) {
-            console.error('Failed to submit feedback:', error);
+            void logError(error, 'feedback-button/submit');
         } finally {
             setSubmitting(false);
         }

@@ -1,4 +1,5 @@
 import { Book, BookSource } from '../constants/types';
+import { logError } from './errorLog';
 import { supabase } from './supabaseConfig';
 
 export interface ScoredBook extends Book {
@@ -252,7 +253,7 @@ export const getRecommendationsForUser = async (
         });
 
         if (rpcError) {
-            console.error('get_book_recommendations RPC failed:', rpcError);
+            void logError(rpcError, 'recommendations/rpc');
             return storePool(await getTrendingBooks(MAX_POOL_SIZE, source));
         }
 
@@ -266,7 +267,7 @@ export const getRecommendationsForUser = async (
         return storePool(applyAuthorDiversity(uniqueScored, MAX_POOL_SIZE));
 
     } catch (error) {
-        console.error('Error getting recommendations:', error);
+        void logError(error, 'recommendations/getForUser');
         return [];
     }
 };
@@ -300,7 +301,7 @@ const getTrendingBooks = async (limitCount: number, source?: BookSource): Promis
             .filter((b): b is ScoredBook => !!b)
             .slice(0, limitCount);
     } catch (e) {
-        console.warn('Error fetching trending:', e);
+        void logError(e, 'recommendations/trending');
         return [];
     }
 };
@@ -344,7 +345,7 @@ export const getTrendingBooksByViews = async (limitCount: number = 10, source?: 
         trendingViewsCache.set(cacheKey, { data: trendingBooks, ts: Date.now() });
         return trendingBooks;
     } catch (e) {
-        console.error('Error fetching trending by views:', e);
+        void logError(e, 'recommendations/trendingByViews');
         return [];
     }
 };
