@@ -1162,6 +1162,27 @@ to show the audit's original findings; don't take "None of #0c is fixed yet" abo
 
 ## Play Store Deployment (started 2026-09-21)
 
+### First preview build crashed on launch — NoSuchMethodError (fixed 2026-09-21)
+Root cause: `expo-localization` was declared `"^56.0.6"` in package.json — a real, published,
+completely unrelated-to-SDK version that npm happily resolved, vs. the `~17.0.9` Expo SDK 54
+actually expects (per `expo-doctor`, which is authoritative here). A native module compiled
+against that mismatched surface throws `NoSuchMethodError` at registration time on boot.
+**This is invisible in `expo start`/Expo Go dev** — Expo Go ships its own precompiled native
+modules and only reads the JS side from `node_modules`, so a broken native package version never
+actually gets compiled until a real EAS/prebuild happens. First time this app's real native code
+ran was this preview build, so first time this could have surfaced.
+Also found + fixed same pass: `expo-web-browser` had two different versions in the dependency
+tree (expo-doctor explicitly warns this causes native build errors), deduped via `npx expo install
+--fix` along with several other Expo-managed packages that had drifted a patch/two behind SDK 54.
+**Lesson for next time a crash-on-launch-only-in-a-real-build is reported**: run
+`npx expo-doctor` first — it directly diffs installed vs. SDK-expected native package versions and
+would have caught this before ever needing a device/logcat. Don't hand-edit Expo-managed package
+versions; use `npx expo install --fix`, which won't touch anything outside Expo's own
+compatibility table.
+One remaining expo-doctor flag (`@types/react-native` installed directly) is types-only, zero
+native code, cannot cause a runtime crash — left as optional cleanup, not mixed into this fix.
+**A fresh `eas build` is required** — this fix cannot take effect on an already-built APK.
+
 ### Pre-build exposure audit (2026-09-21) — found & fixed a catalog-wipe vulnerability
 Asked to cross-check before running `eas build`. Found something unrelated to build config: the
 `books` and `ingestion_cursor` RLS policies let ANY signed-up user modify/delete ANY row via a
