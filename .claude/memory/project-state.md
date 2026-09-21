@@ -666,6 +666,42 @@ administrative/non-code (privacy policy, EAS signing, store listings).
 
 ---
 
+## App icon (fixed 2026-09-21)
+`icon.png` and all three Android adaptive-icon layers were, until this date, the **unmodified
+Expo scaffold template assets** (generic blue chevron with visible construction guidelines) —
+never replaced when the rest of the branding below was built out. This is what a user saw as "the
+Expo icon" on a real device install; it was never a caching issue, the files on disk genuinely
+were the placeholder.
+
+Fixed by rebuilding the fan-mark glyph as a **fresh SVG from exact geometry**, not by upscaling
+`selida-mark.png` — that file bakes in the "Selida" wordmark (wrong composition for an icon, and
+1040×600 source would've needed lossy upscaling to 1024×1024 anyway). The geometry itself was
+lifted directly from `components/animated-logo.tsx`'s `REF_*` constants and `COLORED_PETALS`/
+`DARK_ANGLES` arrays (7 trapezoid petals — 2 dark "book cover" petals at ±85°, 5 colored ones
+fanning between them — rotated around one shared pivot). The glyph's bounding box was computed
+analytically (Python, not eyeballed) so it centers correctly without iterating renders.
+
+Generated with `rsvg-convert` + ImageMagick (both already present at `/opt/homebrew/bin` on this
+machine) at the exact sizes `app.json` declares:
+- `icon.png` (1024×1024) — glyph on `#fefbf8` (the app's real soft background — same color as the
+  splash screen and light theme background), **flattened to fully opaque** (`-alpha off`) since
+  iOS icons can't carry an alpha channel.
+- `android-icon-foreground.png` (512×512) — glyph only, transparent, deliberately scaled SMALLER
+  relative to canvas than icon.png's glyph, because Android's adaptive-icon system further masks
+  this layer down to a centered safe-zone circle (~66% diameter) — undersizing it is what keeps a
+  petal tip from being clipped by whichever mask shape (circle/squircle/teardrop) the launcher
+  applies.
+- `android-icon-monochrome.png` (432×432) — same safe-zone-aware scale, but a plain WHITE
+  silhouette on transparent (Android 13+ tints this layer itself; verified it rendered correctly
+  by compositing onto black temporarily, since a white-on-transparent PNG is invisible against a
+  white preview background).
+- `android-icon-background.png` (512×512) — flat `#fefbf8` fill, no glyph.
+- `favicon.png` (48×48) — same composition downscaled; checked legible at that size before
+  committing.
+- `adaptiveIcon.backgroundColor` in `app.json` updated from `#E6F4FE` (the same leftover
+  Expo-default blue) to `#fefbf8`, so it agrees with the new background image.
+- **Requires a fresh `eas build`** to actually show up on a device, same as any native asset.
+
 ## Branding & Splash (added 2026-09-02)
 - Source of truth for the fan-mark logo + splash animation: user-designed in Claude Design,
   exported as "Selida Exports.dc.html" (#export-mark = static mark, #export-lockup = mark +
