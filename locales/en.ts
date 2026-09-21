@@ -6,6 +6,11 @@ const en = {
   unknownAuthor: 'Unknown Author',
   recentlyAdded: 'Recently',
 
+  // Error boundary
+  errorBoundaryTitle: 'Something went wrong',
+  errorBoundaryBody: 'Selida hit an unexpected problem. Your reading data is safe — try again.',
+  errorBoundaryRetry: 'Try again',
+
   // Tabs
   tabHome: 'Home',
   tabExplore: 'Explore',

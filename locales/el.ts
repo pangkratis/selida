@@ -6,6 +6,11 @@ const el = {
   unknownAuthor: 'Άγνωστος συγγραφέας',
   recentlyAdded: 'Πρόσφατα',
 
+  // Error boundary
+  errorBoundaryTitle: 'Κάτι πήγε στραβά',
+  errorBoundaryBody: 'Η Σελίδα αντιμετώπισε ένα απρόσμενο πρόβλημα. Τα δεδομένα σου είναι ασφαλή — δοκίμασε ξανά.',
+  errorBoundaryRetry: 'Δοκίμασε ξανά',
+
   // Tabs
   tabHome: 'Αρχική',
   tabExplore: 'Εξερεύνηση',

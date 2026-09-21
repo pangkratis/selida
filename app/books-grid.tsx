@@ -4,7 +4,9 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, toTransparent } from '@/constants/theme';
 import { Book } from '@/constants/types';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { logSearch } from '@/services/analytics';
 import { incrementBookView } from '@/services/bookStats';
+import { logError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
 import { logUserActivity } from '@/services/userActivity';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,18 +59,25 @@ export default function BooksGridScreen() {
     const trimmed = text.trim();
     if (!trimmed) return [];
     const { data, error } = await supabase.rpc('search_books', { p_query: trimmed, p_limit: 200 });
-    if (error) { console.error('Search error:', error); return []; }
+    if (error) { void logError(error, 'books-grid/search'); return []; }
     const seen = new Set<string>();
-    return (data ?? []).map((d: any) => mapDocToBook(d.id, d)).filter((b: Book) => {
+    const results = (data ?? []).map((d: any) => mapDocToBook(d.id, d)).filter((b: Book) => {
       if (seen.has(b.id)) return false;
       seen.add(b.id);
       return true;
     });
+
+    // Logged after dedupe so the recorded count matches what the user sees.
+    // A zero here is the signal worth acting on — it's a book the catalog
+    // is missing.
+    logSearch(trimmed, results.length);
+
+    return results;
   };
 
   const fetchAllResults = async (): Promise<Book[]> => {
     const { data, error } = await supabase.from('books').select('*').limit(500);
-    if (error) { console.error('Fetch all error:', error); return []; }
+    if (error) { void logError(error, 'books-grid/fetchAll'); return []; }
     const seen = new Set<string>();
     return (data ?? []).map((d: any) => mapDocToBook(d.id, d)).filter((b: Book) => {
       if (seen.has(b.id)) return false;
@@ -87,7 +96,7 @@ export default function BooksGridScreen() {
           : await fetchSearchResults(queryText);
         if (mounted) setBooks(result);
       } catch (error) {
-        console.error('Error loading books grid:', error);
+        void logError(error, 'books-grid/load');
         if (mounted) setBooks([]);
       } finally {
         if (mounted) setLoading(false);
@@ -99,9 +108,9 @@ export default function BooksGridScreen() {
 
   const handleBookPress = (book: Book) => {
     if (user?.uid) {
-      logUserActivity(user.uid, book.id, 'view_details', 'search_results').catch(console.error);
+      logUserActivity(user.uid, book.id, 'view_details', 'search_results');
     }
-    incrementBookView(book.id).catch(console.error);
+    incrementBookView(book.id);
     router.push({ pathname: '/book-details', params: { book: JSON.stringify(book) } });
   };
 

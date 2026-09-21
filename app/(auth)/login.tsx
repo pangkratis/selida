@@ -3,6 +3,7 @@ import AuthBackgroundCircles from '@/components/auth-background-circles';
 import FloatingField from '@/components/floating-field';
 import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { logEvent } from '@/services/analytics';
 import { supabase } from '@/services/supabaseConfig';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -44,11 +45,16 @@ export default function LoginScreen() {
         }
         setIsLoading(true);
         try {
+            logEvent('login_started', 'login');
             const { error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) throw error;
+            logEvent('login_completed', 'login');
             router.replace('/');
         } catch (error: any) {
             setAuthError(error.message);
+            // A cluster of these on one device is someone locked out —
+            // a support signal, not just a metric.
+            logEvent('login_failed', 'login', { reason: error?.message ?? 'unknown' });
         } finally {
             setIsLoading(false);
         }

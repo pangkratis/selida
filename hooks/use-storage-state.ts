@@ -2,6 +2,13 @@ import * as SecureStore from 'expo-secure-store';
 import * as React from 'react';
 import { Platform } from 'react-native';
 
+// NOTE: the console.error calls in this file deliberately stay as-is rather
+// than going through services/errorLog. `logError` resolves the current user
+// via `supabase.auth.getSession()`, which reads the session back out of this
+// very storage layer — so reporting a storage failure would re-enter the
+// thing that just failed. These are the one place a bare console.error is
+// the right call.
+
 type UseStateHook<T> = [[boolean, T | null], (value: T | null) => void];
 
 function useAsyncState<T>(

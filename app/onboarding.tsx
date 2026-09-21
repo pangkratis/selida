@@ -5,7 +5,9 @@ import { ThemedText } from '@/components/themed-text';
 import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
 import { Book } from '@/constants/types';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { logEvent } from '@/services/analytics';
 import { searchBiblionetBooks } from '@/services/biblionet-api';
+import { logError } from '@/services/errorLog';
 import { getTrendingBooksByViews } from '@/services/recommendations';
 import { supabase } from '@/services/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
@@ -146,6 +148,27 @@ export default function OnboardingScreen() {
         return () => { supabase.removeChannel(channel); };
     }, [user?.uid]);
 
+    // Onboarding funnel, step 1 of 3. Fired once on mount so the denominator
+    // exists: without it, someone who opens this screen and quits is
+    // indistinguishable from someone who never reached it.
+    useEffect(() => {
+        logEvent('onboarding_started', 'onboarding');
+    }, []);
+
+    // Step 2 of 3. The finish button only renders at >= 3 selected chips, so
+    // this is the actual gate people get stuck behind. The gap between
+    // onboarding_started and this event is the drop-off that was previously
+    // invisible; the gap between this and onboarding_complete is people who
+    // saw the button and still didn't press it.
+    const gateLogged = useRef(false);
+    useEffect(() => {
+        if (gateLogged.current || selectedSubcategories.length < 3) return;
+        gateLogged.current = true;
+        logEvent('onboarding_gate_reached', 'onboarding', {
+            subcategoryCount: selectedSubcategories.length,
+        });
+    }, [selectedSubcategories.length]);
+
     const toggleSubcategory = (name: string) => {
         setSelectedSubcategories(prev =>
             prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
@@ -165,9 +188,17 @@ export default function OnboardingScreen() {
                 preferredSubcategories: selectedSubcategories,
             }).eq('id', user.uid);
             if (error) throw error;
+
+            // Final step of the onboarding funnel — see onboarding_started
+            // and onboarding_gate_reached for the two steps before it.
+            logEvent('onboarding_complete', 'onboarding', {
+                subcategoryCount: selectedSubcategories.length,
+                booksAdded: addedBooks.length,
+            });
+
             router.replace('/');
         } catch (err) {
-            console.error('Error completing onboarding:', err);
+            void logError(err, 'onboarding/completeOnboarding');
             setIsCompleting(false);
         }
     };

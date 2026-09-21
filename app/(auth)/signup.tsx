@@ -5,6 +5,8 @@ import FloatingField, { FloatingFieldShell } from '@/components/floating-field';
 import { Country, getCountryByCode } from '@/constants/countries';
 import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { logEvent } from '@/services/analytics';
+import { logError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -55,10 +57,14 @@ export default function SignUpScreen() {
     setAuthError(null);
     if (!email || !password || !displayName) {
       setAuthError(t('signupMissingMsg'));
+      // Counted separately from signup_failed: this is our own form
+      // validation, not the auth service rejecting them.
+      logEvent('signup_failed', 'signup', { reason: 'missing_fields' });
       return;
     }
     setIsLoading(true);
     try {
+      logEvent('signup_started', 'signup');
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) throw error;
       const userId = data.user?.id;
@@ -74,9 +80,15 @@ export default function SignUpScreen() {
       });
       if (profileError) throw profileError;
 
+      logEvent('signup_completed', 'signup', { country: selectedCountry });
+
       router.replace('/onboarding');
     } catch (error: any) {
       setAuthError(error.message);
+      // The message, not the credentials — it distinguishes "email already
+      // registered" from a genuine outage, which is the useful split.
+      logEvent('signup_failed', 'signup', { reason: error?.message ?? 'unknown' });
+      void logError(error, 'signup/handleSignUp');
     } finally {
       setIsLoading(false);
     }

@@ -6,12 +6,14 @@ import {
   Nunito_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/nunito';
+import ErrorBoundary from '@/components/error-boundary';
 import SplashOverlay from '@/components/splash-overlay';
+import { logEvent, logScreenView } from '@/services/analytics';
 import '@/services/i18n';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
 import 'react-native-reanimated';
 import { SessionProvider, useSession } from './ctx';
 
@@ -32,6 +34,42 @@ function Root() {
   const segments = useSegments();
   const router = useRouter();
   const [overlayHidden, setOverlayHidden] = useState(false);
+  const pathname = usePathname();
+
+  // Retention signal. Deliberately NOT gated on a signed-in user — an open
+  // that ends at the login screen is exactly the one worth counting.
+  //
+  // A cold launch is only part of the picture: on mobile people background
+  // and resume the app far more often than they relaunch it, so counting
+  // launches alone undercounts active users. The AppState listener treats a
+  // resume after SESSION_GAP_MS as a new open, which is the usual definition
+  // of a session boundary.
+  useEffect(() => {
+    const SESSION_GAP_MS = 30 * 60 * 1000;
+    let lastActiveAt = Date.now();
+
+    logEvent('app_open', 'cold_launch');
+
+    const handleChange = (next: AppStateStatus) => {
+      if (next === 'active') {
+        if (Date.now() - lastActiveAt >= SESSION_GAP_MS) {
+          logEvent('app_open', 'resume');
+        }
+      } else {
+        // Stamp on the way out, so the gap measures time spent away.
+        lastActiveAt = Date.now();
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleChange);
+    return () => sub.remove();
+  }, []);
+
+  // Screen views, also ungated: without these a tab nobody opens looks
+  // identical to a tab nobody taps a book in.
+  useEffect(() => {
+    if (pathname) logScreenView(pathname);
+  }, [pathname]);
 
   // Fonts are already loaded by the time Root mounts (see RootLayout below),
   // so hand off from the native splash to the JS-rendered animated overlay
@@ -41,9 +79,12 @@ function Root() {
   }, []);
 
   useEffect(() => {
-    console.log('[Layout] useEffect — isLoading:', isLoading, 'session:', session ?? 'null', 'user:', user?.uid ?? 'null', 'segments:', segments);
+    // Log presence, never the session itself — a Supabase Session carries
+    // access_token and refresh_token, and this line ran on every navigation
+    // change, writing live credentials into device/browser logs.
+    if (__DEV__) console.log('[Layout] useEffect — isLoading:', isLoading, 'hasSession:', !!session, 'user:', user?.uid ?? 'null', 'segments:', segments);
     if (isLoading) {
-      console.log('[Layout] Still loading storage, waiting...');
+      if (__DEV__) console.log('[Layout] Still loading storage, waiting...');
       return;
     }
 
@@ -53,20 +94,20 @@ function Root() {
     const inModal = (['book-details', 'book-list', 'books-grid', 'settings', 'catalog-ingestion'] as string[]).includes(segments[0] as string);
 
     if (!session) {
-      console.log('[Layout] No session → redirecting to login');
+      if (__DEV__) console.log('[Layout] No session → redirecting to login');
       if (!inAuthGroup) router.replace('/(auth)/login');
       return;
     }
 
     // Wait for user profile to load before making onboarding decisions
     if (!user) {
-      console.log('[Layout] Session exists but user doc not yet loaded, waiting...');
+      if (__DEV__) console.log('[Layout] Session exists but user doc not yet loaded, waiting...');
       return;
     }
 
     // undefined (existing users) or true = onboarding done
     const onboardingDone = user.onboardingComplete !== false;
-    console.log('[Layout] onboardingDone:', onboardingDone, 'inAuthGroup:', inAuthGroup, 'inOnboarding:', inOnboarding);
+    if (__DEV__) console.log('[Layout] onboardingDone:', onboardingDone, 'inAuthGroup:', inAuthGroup, 'inOnboarding:', inOnboarding);
 
     if (inAuthGroup) {
       router.replace(onboardingDone ? '/' : '/onboarding');
@@ -159,9 +200,14 @@ export default function RootLayout() {
   // On iOS this resolves almost instantly since ui-rounded is a system font.
   if (!fontsLoaded && !fontError) return null;
 
+  // The boundary sits OUTSIDE SessionProvider so that a crash in the provider
+  // itself (session restore, the realtime subscription) is caught too, rather
+  // than escaping above the only thing that could report it.
   return (
-    <SessionProvider>
-      <Root />
-    </SessionProvider>
+    <ErrorBoundary context="RootLayout">
+      <SessionProvider>
+        <Root />
+      </SessionProvider>
+    </ErrorBoundary>
   );
 }
