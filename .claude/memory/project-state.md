@@ -628,10 +628,40 @@ throughout, same convention as the Profile and Onboarding rewrites this session)
 
 ## Auth & Session (ctx.tsx)
 - useSession() hook: exposes session token, AppUser data, signIn/signOut
-- onAuthStateChanged → persists token in expo-secure-store
+- **Session persistence is Supabase's own** (`storage: AsyncStorage` in `services/
+  supabaseConfig.ts`) — **NOT** `hooks/use-storage-state.ts`/SecureStore, despite what CLAUDE.md's
+  "Auth & Session" section says. Confirmed 2026-09-21 while fixing the cold-start hang below:
+  `useStorageState`/`setStorageItemAsync` have zero import sites anywhere in the app — fully dead
+  code. CLAUDE.md is stale on this point; flagged to the user, not changed unilaterally (it's a
+  project-level instructions file, not something to silently edit).
 - Supabase Realtime channel on users table → real-time AppUser updates
 - AppUser: uid, email, displayName, language, country, catalogPreference, preferredSubcategories, onboardingComplete, isAdmin
 - Updates lastLoginAt on login
+
+### Cold-start splash hang — FIXED (2026-09-21)
+Reported: app opens, shows splash, hangs forever loading; force-close + reopen logs in fine. That
+"works on retry" shape pointed at a cold-start-only race, not a deterministic bug.
+- **Root cause, verified by reading `@supabase/auth-js`'s GoTrueClient source directly**: the old
+  `SessionProvider` called BOTH an explicit `supabase.auth.getSession()` on mount AND registered
+  `onAuthStateChange` — but `onAuthStateChange` already fires its own `INITIAL_SESSION` event with
+  the restored session immediately (`GoTrueClient.js` → `onAuthStateChange` → `_emitInitialSession`
+  → `_acquireLock`). Both calls route through the SAME internal `_acquireLock` mutex, so they
+  contended for one lock at the exact moment of mount, every cold start.
+- `SplashOverlay` gates on `!isLoading` from this context, and NOTHING in the chain had a timeout
+  — so if that contention (or any other awaited call) ever stalled, `isLoading` could never become
+  `false` and the splash could never dismiss. A full restart = fresh JS engine = fresh lock state,
+  which is why closing and reopening "fixed" it.
+- **Fixed**: removed the redundant `getSession()` call — `onAuthStateChange`'s `INITIAL_SESSION`
+  event already goes through the same generic handler used for every other event, so this also
+  stopped `fetchUserProfile()` and the `lastLoginAt` update from silently running TWICE on every
+  cold start (once per path) even when nothing hung. Added an 8s failsafe `setTimeout` as a safety
+  net independent of the root cause, so the splash can never hang forever regardless of cause.
+- **Honest confidence note**: this is a real, source-verified mechanism, but a cold-start device
+  race isn't reproducible from this environment — no physical device access. The timeout guarantees
+  the SYMPTOM (permanent hang) can't recur even if this wasn't the only contributing factor. Ask
+  the user to confirm on a real device before considering this fully closed.
+- Pure JS/TS change, no native code — but the bug is a real-device cold-process race, so a fresh
+  EAS build is the faithful way to verify, not just `expo start`/Expo Go.
 
 ### Account deletion (added 2026-09-19) — App Store/Play Store compliance requirement
 Apps with account creation must let users delete their account+data in-app (Apple guideline
