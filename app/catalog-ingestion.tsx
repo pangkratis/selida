@@ -1,7 +1,7 @@
 import { useSession } from '@/app/ctx';
 import { ThemedText } from '@/components/themed-text';
 import { AccentPalette, BorderRadius, Colors, roundedFont } from '@/constants/theme';
-import { ContributorSyncResult, IngestionResult, SubSyncResult, clearBookDatabase, readCursor, resetCursor, runCatalogIngestion, syncContributors, syncSubcategories } from '@/services/catalog-ingestion';
+import { ContributorSyncResult, IngestionResult, MassIngestionResult, SubSyncResult, clearBookDatabase, readCursor, resetCursor, runCatalogIngestion, runMassIngestion, syncContributors, syncSubcategories } from '@/services/catalog-ingestion';
 import { supabase } from '@/services/supabaseConfig';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
@@ -209,6 +209,7 @@ export default function CatalogIngestionScreen() {
   const [booksLoading, setBooksLoading] = useState(false);
   const [selectedBook, setSelectedBook] = useState<any | null>(null);
   const [lookupStatus, setLookupStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [massIngestion, setMassIngestion] = useState<{ status: 'idle' | 'running' | 'done' | 'error'; result: MassIngestionResult | null }>({ status: 'idle', result: null });
   const [subSync, setSubSync] = useState<{ status: 'idle' | 'running' | 'done' | 'error'; result: SubSyncResult | null }>({ status: 'idle', result: null });
   const [contributorSync, setContributorSync] = useState<{ status: 'idle' | 'running' | 'done' | 'error'; result: ContributorSyncResult | null }>({ status: 'idle', result: null });
 
@@ -276,6 +277,15 @@ export default function CatalogIngestionScreen() {
       result,
       totalSaved: prev.totalSaved + result.count,
     }));
+    fetchLatestBooks();
+  };
+
+  const handleMassIngest = async () => {
+    if (massIngestion.status === 'running') return;
+    setMassIngestion({ status: 'running', result: null });
+    const result = await runMassIngestion(800);
+    if (!result) { setMassIngestion({ status: 'idle', result: null }); return; }
+    setMassIngestion({ status: 'done', result });
     fetchLatestBooks();
   };
 
@@ -365,6 +375,7 @@ export default function CatalogIngestionScreen() {
               </View>
               <TouchableOpacity
                 onPress={handleReset}
+                disabled={ingestion.status === 'running' || massIngestion.status === 'running'}
                 style={[styles.cursorChip, { backgroundColor: theme.error + '18', marginLeft: 'auto' }]}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
@@ -469,7 +480,7 @@ export default function CatalogIngestionScreen() {
           style={[styles.submitButton, { backgroundColor: ingestion.status === 'running' ? accent + '80' : accent }]}
           onPress={handleRun}
           activeOpacity={0.82}
-          disabled={ingestion.status === 'running'}
+          disabled={ingestion.status === 'running' || massIngestion.status === 'running'}
         >
           {ingestion.status === 'running' ? (
             <ActivityIndicator size="small" color="#fff" />
@@ -482,6 +493,39 @@ export default function CatalogIngestionScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.submitButton, { backgroundColor: massIngestion.status === 'running' ? AccentPalette[2] + '80' : AccentPalette[2] }]}
+          onPress={handleMassIngest}
+          activeOpacity={0.82}
+          disabled={massIngestion.status === 'running' || ingestion.status === 'running'}
+        >
+          {massIngestion.status === 'running' ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <>
+              <ThemedText style={[styles.submitText, { fontFamily: roundedFont('700') }]}>
+                Mass ingest (800)
+              </ThemedText>
+              <Ionicons name="play-forward-outline" size={17} color="#fff" />
+            </>
+          )}
+        </TouchableOpacity>
+
+        {massIngestion.status === 'done' && massIngestion.result && (
+          <ThemedText style={[styles.hint, { color: AccentPalette[2], fontFamily: roundedFont('500') }]}>
+            {massIngestion.result.requestsMade} requests · saved {massIngestion.result.totalSaved} books
+            ({massIngestion.result.totalNew} new, {massIngestion.result.totalUpdated} already known)
+            {massIngestion.result.done ? ' · Catalog complete!' : ''}
+            {massIngestion.result.stoppedEarly ? ' · stopped early, likely hit today’s rate limit' : ''}
+          </ThemedText>
+        )}
+        {massIngestion.status === 'running' && (
+          <ThemedText style={[styles.hint, { color: theme.secondary, fontFamily: roundedFont('400') }]}>
+            This shares today’s Biblionet request quota with subcategory/contributor sync — running
+            more than one large batch on the same day will likely stop early.
+          </ThemedText>
+        )}
 
         <TouchableOpacity
           style={[styles.submitButton, { backgroundColor: subSync.status === 'running' ? AccentPalette[3] + '80' : AccentPalette[3] }]}
@@ -563,7 +607,7 @@ export default function CatalogIngestionScreen() {
     <View>
       <TouchableOpacity
         onPress={handleClearDatabase}
-        disabled={ingestion.status === 'running'}
+        disabled={ingestion.status === 'running' || massIngestion.status === 'running'}
         style={[styles.clearButton, { borderColor: theme.error + '40' }]}
       >
         <Ionicons name="trash-outline" size={15} color={theme.error} />

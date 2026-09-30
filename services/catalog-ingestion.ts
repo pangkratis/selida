@@ -227,6 +227,80 @@ export async function runCatalogIngestion(): Promise<IngestionResult | null> {
     }
 }
 
+export interface MassIngestionResult {
+    requestsMade: number;
+    totalSaved: number;
+    totalNew: number;
+    totalUpdated: number;
+    done: boolean;
+    stoppedEarly: boolean;
+    finalCursor: Cursor;
+}
+
+// Reuses runCatalogIngestion() per request rather than duplicating its
+// fetch/save/advance logic — this also means a fix to that function (like
+// the Writer-field one) automatically applies here with nothing to keep in
+// sync. Same consecutive-failure-stop pattern as syncSubcategories/
+// syncContributors below, reusing MAX_CONSECUTIVE_FAILURES: 5 in a row
+// almost always means the shared daily request quota has been hit, not that
+// 5 individual pages happened to fail.
+//
+// Safe to cancel or interrupt at any point — runCatalogIngestion() persists
+// the cursor after every single request, so stopping partway through (the
+// app backgrounding, a network drop, pressing Cancel) never loses progress;
+// the next run just continues from wherever the cursor is.
+//
+// IMPORTANT: this shares Biblionet's account-wide 1000-requests/day quota
+// with syncSubcategories (up to 900/run) and syncContributors — running an
+// 800-request mass ingestion on the same day as either of those will very
+// likely hit the cap and trigger the early stop below. That's not a bug,
+// just the same quota being split across whichever of these three the
+// admin runs that day.
+export async function runMassIngestion(requestCount: number = 800): Promise<MassIngestionResult | null> {
+    if (!__DEV__) return null;
+
+    let requestsMade = 0;
+    let totalSaved = 0;
+    let totalNew = 0;
+    let totalUpdated = 0;
+    let consecutiveFailures = 0;
+    let stoppedEarly = false;
+    let done = false;
+    let finalCursor = await getCursor();
+
+    for (let i = 0; i < requestCount; i++) {
+        const result = await runCatalogIngestion();
+        if (!result) break;
+        requestsMade++;
+
+        if (result.error) {
+            console.warn(`[MassIngestion] request ${requestsMade}/${requestCount} failed:`, result.error);
+            consecutiveFailures++;
+            if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                console.warn(`[MassIngestion] ${MAX_CONSECUTIVE_FAILURES} consecutive failures — stopping early, likely hit today's rate limit`);
+                stoppedEarly = true;
+                break;
+            }
+            continue;
+        }
+
+        consecutiveFailures = 0;
+        totalSaved += result.count;
+        totalNew += result.newCount;
+        totalUpdated += result.updatedCount;
+        if (result.next) finalCursor = result.next;
+
+        if (result.done) {
+            console.log('[MassIngestion] Reached end of catalog');
+            done = true;
+            break;
+        }
+    }
+
+    console.log(`[MassIngestion] ${requestsMade} requests, ${totalSaved} books saved (${totalNew} new, ${totalUpdated} already known)`);
+    return { requestsMade, totalSaved, totalNew, totalUpdated, done, stoppedEarly, finalCursor };
+}
+
 export interface SubSyncResult {
     synced: number;
     remaining: number;
