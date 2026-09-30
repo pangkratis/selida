@@ -118,6 +118,10 @@ async function fetchTitles(cursor: Cursor): Promise<any[]> {
 /* ── Mapping ─────────────────────────────────────────────────────── */
 
 function mapItem(item: any): Record<string, any> {
+    // Best-effort only — Writer is frequently empty even when a real
+    // WriterID exists (see the saveable filter above). An empty result
+    // here is expected and gets filled in later by syncContributors(),
+    // not a sign this book was mapped incorrectly.
     const authors: string[] = item.Writer ? [item.Writer] : [];
     const categories: string[] = item.Category ? [item.Category] : [];
     const title: string = item.Title ?? 'Unknown';
@@ -176,8 +180,18 @@ export async function runCatalogIngestion(): Promise<IngestionResult | null> {
         const items = await fetchTitles(cursor);
         console.log(`[Ingestion] Got ${items.length} titles`);
 
-        const saveable = items.filter(item => !!item.CoverImage && !!item.TitlesID && !!item.Writer && !!item.Summary);
-        console.log(`[Ingestion] ${saveable.length}/${items.length} have cover + TitlesID + author + description`);
+        // Deliberately NOT requiring item.Writer here. Checked a real page:
+        // 22/100 books had a genuine WriterID reference but an empty Writer
+        // string — and WriterName was empty too, so there's no better name
+        // to fall back to within this response. Excluding on Writer alone
+        // silently dropped ~1 in 5 otherwise-complete books. Author
+        // resolution already has its own pass — syncContributors() resolves
+        // WriterID → a real name via get_contributors into the contributors/
+        // book_contributors tables, independent of this Writer string, and
+        // runs against every book with syncedContributors=false (the column
+        // default for every new row) regardless of what's in books.authors.
+        const saveable = items.filter(item => !!item.CoverImage && !!item.TitlesID && !!item.Summary);
+        console.log(`[Ingestion] ${saveable.length}/${items.length} have cover + TitlesID + description`);
 
         let newCount = 0;
         let updatedCount = 0;
