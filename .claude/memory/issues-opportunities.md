@@ -366,6 +366,25 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   seeding already guards `!book?.authors?.[0]`, admin screen's `.join(', ')` renders safely blank.
   No downstream fix needed for the empty-array transitional state.
 
+### 7c. Mass-ingest button added (2026-09-21) — user-requested feature
+- `runMassIngestion(requestCount = 800)` in `services/catalog-ingestion.ts` — loops
+  `runCatalogIngestion()` up to N times rather than duplicating its logic, so any future fix to
+  the single-request path (like 7b above) applies here automatically. Same
+  `MAX_CONSECUTIVE_FAILURES` consecutive-failure-stop pattern as `syncSubcategories`/
+  `syncContributors`. Resumable/interruptible for free — `runCatalogIngestion()` already persists
+  the cursor after every single request.
+- UI follows this file's existing convention deliberately (one button, one spinner, one final
+  summary) rather than a new live-progress pattern — matches how `syncSubcategories`/
+  `syncContributors` already present large batches.
+- **Added mutual-exclusion guards that didn't fully exist before**: single-run and mass-ingest now
+  disable each other (both touch the same `ingestion_cursor` row — concurrent runs could race on
+  reading/writing it). Also extended the guard to the reset and clear-database buttons, which
+  **were not guarded against the single-run button running concurrently either, before this** —
+  a pre-existing gap, worth knowing about if touching this file's button states again.
+- **Shares the same daily Biblionet quota** as `syncSubcategories` (900/run) and
+  `syncContributors` — surfaced directly in the UI while mass-ingest is running, not just a code
+  comment, since running 800 + 900 the same day will reliably trigger the early stop.
+
 ### 8. language stored as Greek words, not ISO codes — BLOCKS Google Books
 - Actual values: `ελληνικά` (952), `αγγλικά` (19), `γαλλικά` (7), `ιταλικά` (2), `''` (20)
 - Google Books returns ISO 639-1 (`el`, `en`, `fr`)
