@@ -1,0 +1,20 @@
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_e252c2cbb3bc7c 631-636,641-664
+  s_d6d65f87308408::t_ef140c97849a71 665
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "c7b9ab04c8e8c0cd46ce997bec7f71ef17e4de2c",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
