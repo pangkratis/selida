@@ -340,6 +340,32 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   `app/catalog-ingestion.tsx`'s admin "Book Lookup" box — **left unfixed, user confirmed they
   don't use that feature**. Don't fix this without checking with the user first, per that note.
 
+### 7b. Ingestion silently dropped ~22% of books with an empty Writer field — FIXED (2026-09-21)
+- User-reported as "ingestion dates don't change, we don't get to next month/year" — investigation
+  found the cursor-advancement logic itself was actually correct (verified live: fetched a real
+  page, confirmed `advance()` computes the right next position; confirmed via a rolled-back
+  transaction that the known admin account CAN write to `ingestion_cursor` under the migration_17
+  RLS). Likely explanation for the original report: the cold-start crash (expo-localization
+  mismatch) and splash hang, both fixed the same session, probably prevented completing a clean
+  ingestion run at all in the days before this was reported — not a separate cursor bug.
+- **What WAS a real, separate bug, found along the way**: `services/catalog-ingestion.ts`'s
+  `saveable` filter required `item.Writer` non-empty. Pulled a real page (2023/11, page 1) to
+  check impact: **22 of 100 books** had a genuine `WriterID` reference but an empty `Writer`
+  string — and `WriterName` was ALSO empty for every one of those 22, so there was no better
+  same-response field to fall back to. Otherwise-complete books (cover, id, summary all present)
+  were silently excluded on this one field.
+- **Fixed**: dropped `Writer` from the `saveable` filter. Author resolution already has its own
+  dedicated pass — `syncContributors()` resolves `WriterID` → a real name via `get_contributors`
+  into `contributors`/`book_contributors`, independent of this `Writer` string, and runs against
+  every book with `syncedContributors=false` (the column default for every new row) regardless of
+  `books.authors`. Same pattern as subcategories being deliberately deferred to their own sync
+  pass rather than required at initial ingestion.
+- Verified against the same real page that surfaced the bug: 94/100 saveable after the fix (was
+  72/100), CoverImage/TitlesID/Summary still correctly enforced.
+- Checked both `book.authors` read sites before changing this: home screen's "more from author"
+  seeding already guards `!book?.authors?.[0]`, admin screen's `.join(', ')` renders safely blank.
+  No downstream fix needed for the empty-array transitional state.
+
 ### 8. language stored as Greek words, not ISO codes — BLOCKS Google Books
 - Actual values: `ελληνικά` (952), `αγγλικά` (19), `γαλλικά` (7), `ιταλικά` (2), `''` (20)
 - Google Books returns ISO 639-1 (`el`, `en`, `fr`)
