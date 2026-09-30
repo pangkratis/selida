@@ -71,18 +71,30 @@ export function SessionProvider(props: React.PropsWithChildren) {
   };
 
   useEffect(() => {
-    // Restore existing session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        fetchUserProfile(session.user.id).finally(() => setIsLoading(false));
-        supabase.from('users').update({ lastLoginAt: new Date().toISOString() }).eq('id', session.user.id).then(() => {});
-      } else {
+    // Session restoration relies SOLELY on onAuthStateChange, which fires its
+    // own INITIAL_SESSION event with the restored session immediately on
+    // registration (confirmed in @supabase/auth-js's GoTrueClient source).
+    // A separate explicit `getSession()` call used to run alongside this —
+    // removed because both routes internally through the exact same
+    // `_acquireLock` mutex, so the two calls contended for one lock on every
+    // cold start. That contention, with no timeout anywhere in this chain,
+    // could leave `isLoading` stuck `true` forever on first launch — the
+    // splash screen (gated on `!isLoading`) would then never dismiss, and
+    // only a full app restart (fresh JS engine, fresh lock state) recovered.
+    // It also meant fetchUserProfile() and the lastLoginAt update both ran
+    // twice on every cold start, once from each path.
+    let resolved = false;
+
+    // Safety net independent of the root cause above: guarantees the splash
+    // can never hang forever even if some other awaited call stalls.
+    const failsafe = setTimeout(() => {
+      if (!resolved) {
+        if (__DEV__) console.log('[Auth] Timed out waiting for auth to resolve — unblocking splash anyway');
+        resolved = true;
         setIsLoading(false);
       }
-    });
+    }, 8000);
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
       if (__DEV__) console.log('[Auth] onAuthStateChange:', _event, 'uid:', newSession?.user?.id ?? 'null');
       setSession(newSession);
@@ -92,10 +104,15 @@ export function SessionProvider(props: React.PropsWithChildren) {
       } else {
         setUser(null);
       }
+      resolved = true;
+      clearTimeout(failsafe);
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(failsafe);
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Real-time user profile updates
