@@ -1,0 +1,37 @@
+services/socialAuth.ts
+  s_d6d65f87308408::t_d911443b3b4f73 66
+  s_d6d65f87308408::t_352a20963392d4 3,5
+  s_d6d65f87308408::t_12434229fd512f 64,67-101
+  s_d6d65f87308408::t_d83e649a3d12e3 1-2,4,6-63,65,102
+app/(auth)/signup.tsx
+  s_d6d65f87308408::t_4ff1b5e8cb10ad 46
+  s_d6d65f87308408::t_403838f3f45ad6 10
+  s_d6d65f87308408::t_f45792eb91f564 261-293
+  s_d6d65f87308408::t_2465ed39476841 99-118
+supabase/config.toml
+  s_d6d65f87308408::t_2db27cbfc7f34b 344-346
+  s_d6d65f87308408::t_c5e77f89a00c49 343,347-355
+  s_d6d65f87308408::t_f92e703bf2f34c 165-169
+  s_d6d65f87308408::t_ff6b2fcebe8660 137-138,147,151-152
+  s_d6d65f87308408::t_b59328a72bc38c 153
+app/(auth)/login.tsx
+  s_d6d65f87308408::t_23a100d74e9c14 198-230
+  s_d6d65f87308408::t_611829e238cb55 67-86
+  s_d6d65f87308408::t_19261639f44eb2 7-8,10,34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "35731a9b5f253f8649cda3495661afe95ce31935",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
