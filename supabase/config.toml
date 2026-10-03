@@ -340,13 +340,22 @@ skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 
-# Added 2026-10-03 for Google sign-in (services/socialAuth.ts). Disabled until
-# real credentials exist from Google Cloud Console — fill in client_id, run
-# `supabase secrets set SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=...`, flip
-# enabled to true, then `supabase config push`.
+# Added 2026-10-03 for Google sign-in (services/socialAuth.ts). client_id is
+# filled in; secret is still pending the real value from Google Cloud
+# Console's OAuth client page (a separate value from client_id, does NOT end
+# in .apps.googleusercontent.com — easy to grab the wrong one, they're shown
+# next to each other).
+#
+# `env(...)` below is resolved locally by the CLI from your shell's own
+# environment at push time — NOT Supabase's Edge Function secrets store, so
+# `supabase secrets set` is the wrong command for this (that's what threw the
+# "cannot start with SUPABASE_" error). Instead:
+#   export SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET="<the real secret>"
+#   supabase config push
+# Then flip enabled to true below and push once more.
 [auth.external.google]
 enabled = false
-client_id = ""
+client_id = "918534981694-fl8n3upuccd2bt97pbvo54ccs9sb7h0s.apps.googleusercontent.com"
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 redirect_uri = ""
 url = ""
