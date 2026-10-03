@@ -1,0 +1,19 @@
+supabase/config.toml
+  s_1e077e42b2a8b3::t_ff25b23d293a6b 357
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0f61f5367adf072582c7499b1c525b303cc0868d",
+  "prompts": {},
+  "sessions": {
+    "s_1e077e42b2a8b3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_1e077e42b2a8b3",
+        "model": "unknown"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
