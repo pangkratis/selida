@@ -354,7 +354,7 @@ email_optional = false
 #   supabase config push
 # Then flip enabled to true below and push once more.
 [auth.external.google]
-enabled = false
+enabled = true
 client_id = "918534981694-fl8n3upuccd2bt97pbvo54ccs9sb7h0s.apps.googleusercontent.com"
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
 redirect_uri = ""
