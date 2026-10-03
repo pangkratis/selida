@@ -4,7 +4,10 @@ import FloatingField from '@/components/floating-field';
 import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logEvent } from '@/services/analytics';
+import { logError } from '@/services/errorLog';
+import { GoogleSignInCancelledError, signInWithGoogle } from '@/services/socialAuth';
 import { supabase } from '@/services/supabaseConfig';
+import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
@@ -28,6 +31,7 @@ export default function LoginScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [authError, setAuthError] = useState<string | null>(null);
     const [resetVisible, setResetVisible] = useState(false);
     const [resetEmail, setResetEmail] = useState('');
@@ -57,6 +61,26 @@ export default function LoginScreen() {
             logEvent('login_failed', 'login', { reason: error?.message ?? 'unknown' });
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleGoogleSignIn = async () => {
+        setAuthError(null);
+        setIsGoogleLoading(true);
+        try {
+            logEvent('login_started', 'google');
+            await signInWithGoogle();
+            logEvent('login_completed', 'google');
+            router.replace('/');
+        } catch (error: any) {
+            // Closing the browser isn't an error the user needs to see or
+            // that's worth reporting — it's just changing their mind.
+            if (error instanceof GoogleSignInCancelledError) return;
+            setAuthError(error.message);
+            logEvent('login_failed', 'google', { reason: error?.message ?? 'unknown' });
+            void logError(error, 'login/handleGoogleSignIn');
+        } finally {
+            setIsGoogleLoading(false);
         }
     };
 
@@ -168,6 +192,39 @@ export default function LoginScreen() {
                             >
                                 <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: roundedFont('700') }}>
                                     {isLoading ? t('loginLoading') : t('loginButton')}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* Divider */}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.lg }}>
+                                <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+                                <Text style={{ fontSize: 13, color: theme.secondary, marginHorizontal: Spacing.sm, fontFamily: roundedFont('500') }}>
+                                    {t('authOr')}
+                                </Text>
+                                <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+                            </View>
+
+                            <TouchableOpacity
+                                style={{
+                                    height: 54,
+                                    borderRadius: BorderRadius.pill,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    flexDirection: 'row',
+                                    gap: Spacing.sm,
+                                    marginTop: Spacing.lg,
+                                    backgroundColor: theme.surface,
+                                    borderWidth: 1,
+                                    borderColor: theme.border,
+                                    opacity: isGoogleLoading ? 0.7 : 1,
+                                }}
+                                onPress={handleGoogleSignIn}
+                                disabled={isGoogleLoading || isLoading}
+                                activeOpacity={0.85}
+                            >
+                                <Ionicons name="logo-google" size={18} color={theme.text} />
+                                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', fontFamily: roundedFont('700') }}>
+                                    {isGoogleLoading ? t('authGoogleLoading') : t('authGoogleButton')}
                                 </Text>
                             </TouchableOpacity>
 

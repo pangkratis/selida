@@ -7,6 +7,7 @@ import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/con
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logEvent } from '@/services/analytics';
 import { logError } from '@/services/errorLog';
+import { GoogleSignInCancelledError, signInWithGoogle } from '@/services/socialAuth';
 import { supabase } from '@/services/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -42,6 +43,7 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [selectedCountry, setSelectedCountry] = useState('GR');
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
@@ -91,6 +93,26 @@ export default function SignUpScreen() {
       void logError(error, 'signup/handleSignUp');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setAuthError(null);
+    setIsGoogleLoading(true);
+    try {
+      logEvent('signup_started', 'google');
+      await signInWithGoogle();
+      logEvent('signup_completed', 'google');
+      router.replace('/onboarding');
+    } catch (error: any) {
+      // Closing the browser isn't an error worth surfacing or reporting —
+      // it's just the user changing their mind.
+      if (error instanceof GoogleSignInCancelledError) return;
+      setAuthError(error.message);
+      logEvent('signup_failed', 'google', { reason: error?.message ?? 'unknown' });
+      void logError(error, 'signup/handleGoogleSignIn');
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -233,6 +255,39 @@ export default function SignUpScreen() {
               >
                 <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: roundedFont('700') }}>
                   {isLoading ? t('signupLoading') : t('signupButton')}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Divider */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: Spacing.lg }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+                <Text style={{ fontSize: 13, color: theme.secondary, marginHorizontal: Spacing.sm, fontFamily: roundedFont('500') }}>
+                  {t('authOr')}
+                </Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: theme.border }} />
+              </View>
+
+              <TouchableOpacity
+                style={{
+                  height: 54,
+                  borderRadius: BorderRadius.pill,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: Spacing.sm,
+                  marginTop: Spacing.lg,
+                  backgroundColor: theme.surface,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  opacity: isGoogleLoading ? 0.7 : 1,
+                }}
+                onPress={handleGoogleSignIn}
+                disabled={isGoogleLoading || isLoading}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="logo-google" size={18} color={theme.text} />
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', fontFamily: roundedFont('700') }}>
+                  {isGoogleLoading ? t('authGoogleLoading') : t('authGoogleButton')}
                 </Text>
               </TouchableOpacity>
 

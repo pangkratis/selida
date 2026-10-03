@@ -134,8 +134,8 @@ enabled = true
 # Store analytical data in S3 for running ETL jobs over Iceberg Catalog
 # This feature is only available on the hosted platform.
 [storage.analytics]
-enabled = false
-max_namespaces = 5
+enabled = true
+max_namespaces = 10
 max_tables = 10
 max_catalogs = 2
 
@@ -144,9 +144,12 @@ max_catalogs = 2
 
 # Store vector embeddings in S3 for large and durable datasets
 [storage.vector]
-enabled = false
+enabled = true
 max_buckets = 10
 max_indexes = 5
+
+[storage.image_transformation]
+enabled = true
 
 # Vector Buckets is available to Supabase Pro plan.
 # [storage.vector.buckets.documents-openai]
@@ -159,7 +162,11 @@ site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = []
+# selida://** added 2026-10-03 for Google sign-in — expo-auth-session's
+# makeRedirectUri() resolves to the app's custom scheme (app.json →
+# "scheme": "selida") in a standalone/EAS build, and the OAuth callback is
+# rejected outright if its exact redirect isn't allow-listed here.
+additional_redirect_urls = ["selida://**"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -331,6 +338,19 @@ url = ""
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
+email_optional = false
+
+# Added 2026-10-03 for Google sign-in (services/socialAuth.ts). Disabled until
+# real credentials exist from Google Cloud Console — fill in client_id, run
+# `supabase secrets set SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=...`, flip
+# enabled to true, then `supabase config push`.
+[auth.external.google]
+enabled = false
+client_id = ""
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+redirect_uri = ""
+url = ""
+skip_nonce_check = false
 email_optional = false
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
