@@ -572,6 +572,46 @@ Biblionet API surface, testing all 4 previously-unused endpoints (`get_contribut
 
 ---
 
+## Google Sign-In (added 2026-10-03)
+`services/socialAuth.ts` → `signInWithGoogle()`, wired into both login.tsx and signup.tsx as a
+"Continue with Google" button below a divider under the main submit button (locale strings
+`authGoogleButton`/`authGoogleLoading`/`authOr` already existed, unused, before this).
+- **Browser-based (expo-auth-session + expo-web-browser), deliberately NOT the native Google
+  Sign-In SDK** — there was a dead, abandoned `withGoogleSignInAndroid` config plugin (commented
+  out, zero call sites) found during the pre-build security audit; this doesn't revive that
+  approach, it's a clean OAuth-via-in-app-browser flow instead. No native module, works
+  identically in Expo Go and a standalone build.
+- **This client uses Supabase's IMPLICIT flow, not PKCE** — `services/supabaseConfig.ts` never
+  sets `flowType: 'pkce'`. That means the OAuth callback carries `access_token`/`refresh_token`
+  in the URL **fragment**, not a `?code=` to exchange. `signInWithGoogle()` uses
+  `expo-auth-session`'s `QueryParams.getQueryParams()` (confirmed it merges query AND hash
+  params) + `supabase.auth.setSession()` — NOT `exchangeCodeForSession()`. **If `flowType` is
+  ever changed to `'pkce'`, this function needs to change too.**
+- **Handles a real gap, not just the button**: email signup creates the `public.users` profile
+  via an explicit `create_user_profile` RPC call right after `auth.signUp()` — OAuth has no
+  equivalent signal (Supabase silently creates the `auth.users` row on first login, no way to
+  tell "new account" from "returning user" from the client). Without a profile row,
+  `_layout.tsx` waits forever for a `user` that never arrives — a first-time Google sign-in would
+  auth successfully then hang permanently. `signInWithGoogle()` checks for an existing profile
+  after `setSession()` and creates one via the same RPC if missing, deriving defaults the way
+  signup.tsx's form does (device region → country, `resolveLanguage('device')` → language, same
+  greek/international split) since there's no manual form to collect them from on this path.
+- `GoogleSignInCancelledError` — thrown when the user closes the browser without finishing;
+  both screens treat this as a silent no-op (no error shown, nothing logged), not a failure.
+- **Supabase config**: `additional_redirect_urls = ["selida://**"]` is LIVE (pushed 2026-10-03 —
+  without it the OAuth callback is rejected outright). `[auth.external.google]` is scaffolded in
+  `supabase/config.toml` but **deliberately left `enabled = false`** with an empty `client_id`
+  and an `env()`-referenced secret, matching the existing disabled Apple placeholder's shape.
+- **NOT done, requires the user's own Google Cloud Console access — can't be done from here**:
+  create an OAuth 2.0 Client ID (type **"Web application"**, not Android/iOS — Supabase's flow
+  is web-based redirect even for a mobile app), with authorized redirect URI
+  `https://rxovzritmmnpodojhfuj.supabase.co/auth/v1/callback` (Supabase's own callback, NOT the
+  app's `selida://` scheme — that's already handled via `additional_redirect_urls`). Then:
+  paste `client_id` into config.toml (not sensitive), `supabase secrets set
+  SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET=...`, flip `enabled = true`, `supabase config push`.
+  **This entire feature does nothing end-to-end until that's done** — the button will open a
+  browser to an error page until Google's provider is actually enabled on the Supabase side.
+
 ## Auth screens (login.tsx, signup.tsx) — Rebuilt 2026-09-02
 Adapted from a Claude Design HTML mock ("Selida — Auth screens (6a + 7a)") — structural layout
 only, NOT the mock's Quicksand/Fraunces fonts or literal hex (uses `roundedFont`/theme tokens
