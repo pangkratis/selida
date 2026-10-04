@@ -1,0 +1,25 @@
+app/book-details.tsx
+  s_d6d65f87308408::t_63ded6517ada5a 275,281
+  s_d6d65f87308408::t_57c63914a68150 151-161
+  s_d6d65f87308408::t_93e180e186069d 273-274,276-280
+locales/el.ts
+  s_d6d65f87308408::t_63ded6517ada5a 119-120
+locales/en.ts
+  s_d6d65f87308408::t_63ded6517ada5a 119-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a5d3463374303496e4f425497b696c703d019a0a",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
