@@ -149,7 +149,17 @@ hex). Uses the app's own theme tokens throughout.
 - "Popular right now" HorizontalBookShelf from getTrendingBooksByViews — shown when search bar is empty
 - Book search bar (400ms debounce → searchBiblionetBooks); results in 3-col grid
 - Added books shelf: real-time readingList subscription shows user's already-added books
-- completeOnboarding writes `onboardingComplete: true` + `preferredSubcategories: string[]` to users table
+- completeOnboarding writes `onboardingComplete: true`, `preferredGenres: string[]` (slugs) and
+  `preferredSubcategories: string[]` to users table, and clears the recommendation cache.
+- **2026-10-04 rework (migration_18, commit 7d6bf7b)**: one tag list — genres with ≥20 books
+  (`get_browsable_genres(p_min_books: 20)`) first, then subcategories from
+  `get_onboarding_subcategories` (only `subcategories.onboarding_visible` rows, skipping any
+  heading a genre already covers). Selection keys are `g:<slug>` / `s:<name>`. Gate is 3 picks
+  across both kinds.
+- **Previously**: onboarding showed raw subject headings, and `preferredSubcategories` was never
+  read by the recommender — onboarding picks had no effect. Cold start now uses picks via
+  `getOnboardingPool` in services/recommendations.ts (genres expand through
+  `get_genre_subject_headings`), falling back to trending only with no picks.
 - Continue button text: "Continue" if any personalization selected, "Skip" otherwise
 
 ### Book Details (book-details.tsx) — Complete
