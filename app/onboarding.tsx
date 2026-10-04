@@ -6,7 +6,6 @@ import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/con
 import { Book } from '@/constants/types';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logEvent } from '@/services/analytics';
-import { searchBiblionetBooks } from '@/services/biblionet-api';
 import { logError } from '@/services/errorLog';
 import { getTrendingBooksByViews } from '@/services/recommendations';
 import { supabase } from '@/services/supabaseConfig';
@@ -100,9 +99,21 @@ export default function OnboardingScreen() {
         searchTimeoutRef.current = setTimeout(async () => {
             setIsSearching(true);
             try {
-                const results = await searchBiblionetBooks(searchText.trim());
-                setSearchResults(results.slice(0, 12));
-            } catch {
+                const { data, error } = await supabase.rpc('search_books', { p_query: searchText.trim(), p_limit: 12 });
+                if (error) throw error;
+                setSearchResults(((data ?? []) as any[]).map(row => ({
+                    ...row,
+                    authors: row.authors ?? [],
+                    categories: row.categories ?? [],
+                    description: row.description ?? '',
+                    edition: row.edition ?? '',
+                    isActive: row.isActive ?? true,
+                    popularityCount: row.popularityCount ?? 0,
+                    publisher: row.publisher ?? '',
+                    lastFetchedAt: row.lastFetchedAt ? new Date(row.lastFetchedAt) : new Date(),
+                })));
+            } catch (error) {
+                void logError(error, 'onboarding/search');
                 setSearchResults([]);
             } finally {
                 setIsSearching(false);
