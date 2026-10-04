@@ -7,7 +7,7 @@ import { Book } from '@/constants/types';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logEvent } from '@/services/analytics';
 import { logError } from '@/services/errorLog';
-import { getTrendingBooksByViews } from '@/services/recommendations';
+import { getTrendingBooksByViews, invalidateRecommendationsCache } from '@/services/recommendations';
 import { supabase } from '@/services/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
@@ -35,18 +35,20 @@ type AddedBook = {
     authors?: string[];
 };
 
-type PopularSubcategory = {
-    name: string;
-    book_count: number;
-    total_popularity: number;
-};
+type GenreOption = { slug: string; name_en: string; name_el: string; book_count: number };
+type SubcategoryOption = { name: string; book_count: number };
+type Topic = { key: string; label: string };
+
+// Genres need this many books to be offered: a chip that leads to a near-empty
+// shelf is worse than no chip.
+const MIN_GENRE_BOOKS = 20;
 
 
 
 const CHIP_ROWS = 4;
 
 export default function OnboardingScreen() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const { user } = useSession();
     const router = useRouter();
     const colorScheme = useColorScheme() ?? 'light';
@@ -57,8 +59,11 @@ export default function OnboardingScreen() {
     const [searchResults, setSearchResults] = useState<Book[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [addedBooks, setAddedBooks] = useState<AddedBook[]>([]);
-    const [popularSubcategories, setPopularSubcategories] = useState<PopularSubcategory[]>([]);
-    const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+    const [genres, setGenres] = useState<GenreOption[]>([]);
+    const [subcategories, setSubcategories] = useState<SubcategoryOption[]>([]);
+    // Keys are 'g:<slug>' for genres and 's:<name>' for subcategories, so a
+    // genre and a subcategory can never collide.
+    const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
     const [trendingBooks, setTrendingBooks] = useState<Book[]>([]);
     const [isCompleting, setIsCompleting] = useState(false);
     const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -71,22 +76,36 @@ export default function OnboardingScreen() {
 
     // Distribute chips into CHIP_ROWS rows in column-major order so all rows
     // have similarly-ranked chips as the user scrolls horizontally.
+    // Genres first, then subcategories, shown as one list of topics. The
+    // user sees a single set of tags; they're stored separately on save.
+    const topics = useMemo<Topic[]>(() => {
+        const isGreek = i18n.language.startsWith('el');
+        const genreTopics = genres.map(g => ({
+            key: `g:${g.slug}`,
+            label: isGreek ? g.name_el : g.name_en,
+        }));
+        const subTopics = subcategories.map(s => ({ key: `s:${s.name}`, label: s.name }));
+        return [...genreTopics, ...subTopics];
+    }, [genres, subcategories, i18n.language]);
+
     const chipRows = useMemo(() => {
-        const rows: { sub: PopularSubcategory; idx: number }[][] =
+        const rows: { topic: Topic; idx: number }[][] =
             Array.from({ length: CHIP_ROWS }, () => []);
-        popularSubcategories.forEach((sub, i) => {
-            rows[i % CHIP_ROWS].push({ sub, idx: i });
+        topics.forEach((topic, i) => {
+            rows[i % CHIP_ROWS].push({ topic, idx: i });
         });
         return rows;
-    }, [popularSubcategories]);
+    }, [topics]);
 
     useEffect(() => {
         const load = async () => {
-            const [{ data: subs }, trending] = await Promise.all([
-                supabase.rpc('get_popular_subcategories', { p_limit: 40 }),
+            const [{ data: genreRows }, { data: subs }, trending] = await Promise.all([
+                supabase.rpc('get_browsable_genres', { p_min_books: MIN_GENRE_BOOKS }),
+                supabase.rpc('get_onboarding_subcategories', { p_limit: 20 }),
                 getTrendingBooksByViews(20),
             ]);
-            if (subs) setPopularSubcategories(subs);
+            if (genreRows) setGenres(genreRows as GenreOption[]);
+            if (subs) setSubcategories(subs);
             setTrendingBooks(trending);
         };
         load();
@@ -173,16 +192,16 @@ export default function OnboardingScreen() {
     // saw the button and still didn't press it.
     const gateLogged = useRef(false);
     useEffect(() => {
-        if (gateLogged.current || selectedSubcategories.length < 3) return;
+        if (gateLogged.current || selectedKeys.length < 3) return;
         gateLogged.current = true;
         logEvent('onboarding_gate_reached', 'onboarding', {
-            subcategoryCount: selectedSubcategories.length,
+            topicCount: selectedKeys.length,
         });
-    }, [selectedSubcategories.length]);
+    }, [selectedKeys.length]);
 
-    const toggleSubcategory = (name: string) => {
-        setSelectedSubcategories(prev =>
-            prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
+    const toggleTopic = (key: string) => {
+        setSelectedKeys(prev =>
+            prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
         );
     };
 
@@ -194,16 +213,22 @@ export default function OnboardingScreen() {
         if (!user?.uid || isCompleting) return;
         setIsCompleting(true);
         try {
+            const preferredGenres = selectedKeys.filter(k => k.startsWith('g:')).map(k => k.slice(2));
+            const preferredSubcategories = selectedKeys.filter(k => k.startsWith('s:')).map(k => k.slice(2));
             const { error } = await supabase.from('users').update({
                 onboardingComplete: true,
-                preferredSubcategories: selectedSubcategories,
+                preferredGenres,
+                preferredSubcategories,
             }).eq('id', user.uid);
             if (error) throw error;
+            // Drop any pool cached before these picks existed, so they take
+            // effect on the first home screen load.
+            invalidateRecommendationsCache(user.uid);
 
             // Final step of the onboarding funnel — see onboarding_started
             // and onboarding_gate_reached for the two steps before it.
             logEvent('onboarding_complete', 'onboarding', {
-                subcategoryCount: selectedSubcategories.length,
+                topicCount: selectedKeys.length,
                 booksAdded: addedBooks.length,
             });
 
@@ -314,23 +339,23 @@ export default function OnboardingScreen() {
                     )}
 
                     {/* ── Genre chips — multi-row horizontal scroll ─── */}
-                    {!isActiveSearch && popularSubcategories.length > 0 && (
+                    {!isActiveSearch && topics.length > 0 && (
                         <View style={styles.chipsSection}>
                             <View style={styles.chipsSectionHeader}>
                                 <View style={{ flex: 1 }}>
                                     <ThemedText style={[styles.sectionTitle, { color: theme.secondary, marginBottom: 2 }]}>
                                         {t('onboardingWhatDoYouEnjoy')}
                                     </ThemedText>
-                                    {selectedSubcategories.length < 3 && (
+                                    {selectedKeys.length < 3 && (
                                         <ThemedText style={[styles.chipsHint, { color: theme.secondary }]}>
-                                            {t('onboardingSelectMoreHint', { count: 3 - selectedSubcategories.length })}
+                                            {t('onboardingSelectMoreHint', { count: 3 - selectedKeys.length })}
                                         </ThemedText>
                                     )}
                                 </View>
-                                {selectedSubcategories.length > 0 && (
+                                {selectedKeys.length > 0 && (
                                     <View style={styles.selectedRow}>
                                         <TouchableOpacity
-                                            onPress={() => setSelectedSubcategories([])}
+                                            onPress={() => setSelectedKeys([])}
                                             activeOpacity={0.7}
                                             style={[styles.checkbox, { borderColor: AccentPalette[3], borderWidth: 2 }]}
                                         >
@@ -338,7 +363,7 @@ export default function OnboardingScreen() {
                                         </TouchableOpacity>
                                         <ThemedText style={[styles.selectedCount, { color: theme.secondary }]}>
                                             <ThemedText style={[styles.selectedCountNum, { color: theme.secondary }]}>
-                                                {selectedSubcategories.length}
+                                                {selectedKeys.length}
                                             </ThemedText>
                                             {' selected'}
                                         </ThemedText>
@@ -353,12 +378,12 @@ export default function OnboardingScreen() {
                                 <View style={styles.chipsColumns}>
                                     {chipRows.map((row, rowIdx) => (
                                         <View key={rowIdx} style={styles.chipsRow}>
-                                            {row.map(({ sub, idx }) => {
-                                                const selected = selectedSubcategories.includes(sub.name);
+                                            {row.map(({ topic, idx }) => {
+                                                const selected = selectedKeys.includes(topic.key);
                                                 const accent = AccentPalette[idx % AccentPalette.length];
                                                 return (
                                                     <TouchableOpacity
-                                                        key={sub.name}
+                                                        key={topic.key}
                                                         style={[
                                                             styles.chip,
                                                             {
@@ -368,7 +393,7 @@ export default function OnboardingScreen() {
                                                                 elevation: 4,
                                                             },
                                                         ]}
-                                                        onPress={() => toggleSubcategory(sub.name)}
+                                                        onPress={() => toggleTopic(topic.key)}
                                                         activeOpacity={0.75}
                                                     >
                                                         <ThemedText
@@ -381,7 +406,7 @@ export default function OnboardingScreen() {
                                                                 },
                                                             ]}
                                                         >
-                                                            {sub.name}
+                                                            {topic.label}
                                                         </ThemedText>
                                                     </TouchableOpacity>
                                                 );
@@ -444,11 +469,11 @@ export default function OnboardingScreen() {
                         </View>
                     )}
 
-                    <View style={{ height: selectedSubcategories.length >= 3 ? 120 : 40 }} />
+                    <View style={{ height: selectedKeys.length >= 3 ? 120 : 40 }} />
                 </ScrollView>
 
                 {/* ── Finish button (sticky, shown when ≥3 categories selected) ── */}
-                {selectedSubcategories.length >= 3 && (
+                {selectedKeys.length >= 3 && (
                     <View style={[styles.bottomBar, { backgroundColor: theme.background, borderTopColor: theme.border }]}>
                         <TouchableOpacity
                             style={[styles.finishButton, { backgroundColor: AccentPalette[1], opacity: isCompleting ? 0.6 : 1 }]}

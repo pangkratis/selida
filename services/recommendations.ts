@@ -158,7 +158,8 @@ export const getRecommendationsForUser = async (
                 .limit(50);
 
             if (!rlData || rlData.length === 0) {
-                return storePool(await getTrendingBooks(MAX_POOL_SIZE, source));
+                const onboarding = await getOnboardingPool(userId, source);
+                return storePool(onboarding.length > 0 ? onboarding : await getTrendingBooks(MAX_POOL_SIZE, source));
             }
 
             readingListSignals = rlData.map((row: any) => ({
@@ -234,7 +235,8 @@ export const getRecommendationsForUser = async (
         const preferredLanguage = topNByWeight(languageCounts, 1)[0] ?? null;
 
         if (topCategories.length === 0 && topSubcategories.length === 0 && topAuthors.length === 0) {
-            return storePool(await getTrendingBooks(MAX_POOL_SIZE, source));
+            const onboarding = await getOnboardingPool(userId, source);
+            return storePool(onboarding.length > 0 ? onboarding : await getTrendingBooks(MAX_POOL_SIZE, source));
         }
 
         // --- Single RPC round-trip: server joins + scores candidates -------------
@@ -270,6 +272,47 @@ export const getRecommendationsForUser = async (
         void logError(error, 'recommendations/getForUser');
         return [];
     }
+};
+
+// Cold start: a user with no reading history has only their onboarding picks
+// as signal. Genres expand into the subject headings mapped to them
+// (get_genre_subject_headings), so one subcategory match serves both kinds of
+// pick. Returns [] when the user made no picks, so callers can fall back.
+const getOnboardingPool = async (userId: string, source?: BookSource): Promise<ScoredBook[]> => {
+    const { data: prefs } = await supabase
+        .from('users')
+        .select('preferredGenres, preferredSubcategories')
+        .eq('id', userId)
+        .maybeSingle();
+    const genreSlugs: string[] = prefs?.preferredGenres ?? [];
+    const subcategories: string[] = prefs?.preferredSubcategories ?? [];
+
+    let headings: string[] = [];
+    if (genreSlugs.length > 0) {
+        const { data, error } = await supabase.rpc('get_genre_subject_headings', { p_slugs: genreSlugs });
+        if (error) void logError(error, 'recommendations/genreHeadings');
+        headings = (data ?? []) as string[];
+    }
+
+    const terms = Array.from(new Set([...subcategories, ...headings]));
+    if (terms.length === 0) return [];
+
+    const { data, error } = await supabase.rpc('get_book_recommendations', {
+        p_categories: [],
+        p_subcategories: terms,
+        p_authors: [],
+        p_tags: [],
+        p_publishers: [],
+        p_preferred_language: null,
+        p_source: source ?? null,
+        p_exclude_ids: [],
+        p_limit: MAX_POOL_SIZE,
+    });
+    if (error) {
+        void logError(error, 'recommendations/onboardingRpc');
+        return [];
+    }
+    return ((data ?? []) as any[]).map(mapRpcRow);
 };
 
 const getTrendingBooks = async (limitCount: number, source?: BookSource): Promise<ScoredBook[]> => {
