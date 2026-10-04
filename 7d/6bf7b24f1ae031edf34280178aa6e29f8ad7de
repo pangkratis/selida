@@ -1,0 +1,25 @@
+app/onboarding.tsx
+  s_d6d65f87308408::t_25779820225b03 10,224-226
+  s_d6d65f87308408::t_7b54b3ae323307 38-44,51,62-66,79-90,92,94-95,98,102-104,107-108,195,198,200,202-204,216-217,220-221,231,342,349,351,355,358,366,381-382,386,396,409,472,476
+sql/migration_18_onboarding_topics.sql
+  s_d6d65f87308408::t_b3be200033e3da 1-75
+services/recommendations.ts
+  s_d6d65f87308408::t_8c41ed5c943569 161-162,238-239,277-315
+  s_d6d65f87308408::t_17e24deb09ead6 316-317
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7d6bf7b24f1ae031edf34280178aa6e29f8ad7de",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
