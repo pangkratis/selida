@@ -80,21 +80,34 @@ export default function BookDetailsScreen() {
         );
     }
 
-    const toggleStatus = async () => {
-        if (!user?.uid || !book?.id) return;
+    const setListStatus = async (next: 'wishlist' | 'reading' | 'completed') => {
+        if (!user?.uid || !book?.id || status === next) return;
+        const action = next === 'reading' ? 'add_to_reading' : next === 'completed' ? 'mark_completed' : 'add_to_wishlist';
         try {
-            await upsertBook(book);
+            if (!status) {
+                await upsertBook(book);
+                await addToReadingList(user.uid, book.id, next);
+            } else {
+                // update (not upsert) keeps addedAt, so moving a book between
+                // lists doesn't reset when it was first saved.
+                const { error } = await supabase.from('readingList')
+                    .update({ status: next })
+                    .eq('userId', user.uid)
+                    .eq('bookId', book.id);
+                if (error) throw error;
+            }
+            setStatus(next);
+            void logUserActivity(user.uid, book.id, action, 'book_details');
         } catch (e) {
-            void logError(e, 'book-details/saveBook');
-            return;
+            void logError(e, 'book-details/setListStatus');
         }
-        if (!status) {
-            await addToReadingList(user.uid, book.id, 'wishlist');
-            await logUserActivity(user.uid, book.id, "add_to_wishlist", "book_details");
-        } else {
-            await removeFromReadingList(user.uid, book.id);
-            await logUserActivity(user.uid, book.id, "remove_from_list", "book_details");
-        }
+    };
+
+    const removeFromList = async () => {
+        if (!user?.uid || !book?.id) return;
+        await removeFromReadingList(user.uid, book.id);
+        setStatus(null);
+        void logUserActivity(user.uid, book.id, 'remove_from_list', 'book_details');
     };
 
     const addToReadingList = async (uid: string, bookId: string, listStatus: 'reading' | 'wishlist' | 'completed') => {
@@ -246,17 +259,33 @@ export default function BookDetailsScreen() {
 
                 {/* ── CTA Button ────────────────────────────────── */}
                 <View style={styles.ctaRow}>
-                    <TouchableOpacity
-                        style={[styles.ctaButton, {
-                            backgroundColor: !status ? accent : theme.error,
-                            shadowColor: !status ? accent : theme.error,
-                        }]}
-                        onPress={toggleStatus}
-                        activeOpacity={0.82}
-                    >
-                        <Ionicons name={!status ? 'heart' : 'trash-outline'} size={18} color="#fff" />
-                        <ThemedText style={styles.ctaText}>{!status ? t('bookSaveToWishlist') : t('bookRemoveFromList')}</ThemedText>
-                    </TouchableOpacity>
+                    <View style={[styles.statusRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        {([
+                            { key: 'wishlist', icon: 'heart', label: t('bookStatusWishlist'), color: theme.tabWishlist },
+                            { key: 'reading', icon: 'book', label: t('bookStatusReading'), color: theme.tabReading },
+                            { key: 'completed', icon: 'checkmark-circle', label: t('bookStatusFinished'), color: theme.tabFinished },
+                        ] as const).map(opt => {
+                            const active = status === opt.key;
+                            return (
+                                <TouchableOpacity
+                                    key={opt.key}
+                                    onPress={() => setListStatus(opt.key)}
+                                    activeOpacity={0.8}
+                                    style={[styles.statusSegment, active && { backgroundColor: opt.color }]}
+                                >
+                                    <Ionicons name={opt.icon} size={15} color={active ? '#fff' : opt.color} />
+                                    <ThemedText style={[styles.statusLabel, { color: active ? '#fff' : theme.text }]}>
+                                        {opt.label}
+                                    </ThemedText>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                    {status && (
+                        <TouchableOpacity onPress={removeFromList} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.removeLink}>
+                            <ThemedText style={[styles.removeLinkText, { color: theme.error }]}>{t('bookRemoveFromList')}</ThemedText>
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {/* ── Description ───────────────────────────────── */}
@@ -410,6 +439,33 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 20,
         marginBottom: 6,
+    },
+    statusRow: {
+        flexDirection: 'row',
+        width: '100%',
+        padding: 4,
+        borderRadius: 15,
+        borderWidth: StyleSheet.hairlineWidth,
+    },
+    statusSegment: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        height: 40,
+        borderRadius: 11,
+    },
+    statusLabel: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    removeLink: {
+        marginTop: 10,
+    },
+    removeLinkText: {
+        fontSize: 13,
+        fontWeight: '600',
     },
     ctaButton: {
         flexDirection: 'row',

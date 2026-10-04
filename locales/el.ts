@@ -113,6 +113,9 @@ const el = {
   bookPages: '{{count}} σελίδες',
   bookIsbn: 'ISBN',
   bookSaveToWishlist: 'Στη Λίστα μου',
+  bookStatusWishlist: 'Λίστα',
+  bookStatusReading: 'Διαβάζω',
+  bookStatusFinished: 'Τελείωσα',
   bookRemoveFromList: 'Αφαίρεση',
 
   // Onboarding

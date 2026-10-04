@@ -113,6 +113,9 @@ const en = {
   bookPages: '{{count}} pages',
   bookIsbn: 'ISBN',
   bookSaveToWishlist: 'Save to Wishlist',
+  bookStatusWishlist: 'Wishlist',
+  bookStatusReading: 'Reading',
+  bookStatusFinished: 'Finished',
   bookRemoveFromList: 'Remove from List',
 
   // Onboarding
