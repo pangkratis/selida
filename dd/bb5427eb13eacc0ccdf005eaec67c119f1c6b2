@@ -1,0 +1,20 @@
+app/(tabs)/index.tsx
+  s_d6d65f87308408::t_3931a94fe7506a 138-147,234
+  s_d6d65f87308408::t_79df2910427bcd 15-16,137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "ddbb5427eb13eacc0ccdf005eaec67c119f1c6b2",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
