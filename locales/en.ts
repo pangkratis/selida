@@ -116,6 +116,8 @@ const en = {
   bookStatusWishlist: 'Wishlist',
   bookStatusReading: 'Reading',
   bookStatusFinished: 'Finished',
+  bookStartReading: 'Start reading',
+  bookMarkFinished: 'Mark as finished',
   bookRemoveFromList: 'Remove from List',
 
   // Onboarding

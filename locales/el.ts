@@ -116,6 +116,8 @@ const el = {
   bookStatusWishlist: 'Λίστα',
   bookStatusReading: 'Διαβάζω',
   bookStatusFinished: 'Τελείωσα',
+  bookStartReading: 'Ξεκίνα να διαβάζεις',
+  bookMarkFinished: 'Σημείωσε ως τελειωμένο',
   bookRemoveFromList: 'Αφαίρεση',
 
   // Onboarding

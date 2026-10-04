@@ -148,6 +148,17 @@ export default function BookDetailsScreen() {
 
     const accentIndex = Math.abs((book.title || '').split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0)) % AccentPalette.length;
     const accent = AccentPalette[accentIndex];
+
+    // One button that moves the book forward through the lists. Removing is a
+    // separate link, so a book in Wishlist or Reading can be dropped without
+    // first being pushed through every later list.
+    const nextStep = (() => {
+        if (status === 'wishlist') return { label: t('bookStartReading'), icon: 'book' as const, color: theme.tabReading, next: 'reading' as const };
+        if (status === 'reading') return { label: t('bookMarkFinished'), icon: 'checkmark-circle' as const, color: theme.tabFinished, next: 'completed' as const };
+        if (status === 'completed') return { label: t('bookRemoveFromList'), icon: 'trash-outline' as const, color: theme.error, next: null };
+        return { label: t('bookSaveToWishlist'), icon: 'heart' as const, color: accent, next: 'wishlist' as const };
+    })();
+
     const heroTint = mixHex(theme.background, accent, colorScheme === 'dark' ? 0.12 : 0.08);
 
     // Hero cover: clamped to screen width rather than a bare fixed size — at a
@@ -259,29 +270,15 @@ export default function BookDetailsScreen() {
 
                 {/* ── CTA Button ────────────────────────────────── */}
                 <View style={styles.ctaRow}>
-                    <View style={[styles.statusRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                        {([
-                            { key: 'wishlist', icon: 'heart', label: t('bookStatusWishlist'), color: theme.tabWishlist },
-                            { key: 'reading', icon: 'book', label: t('bookStatusReading'), color: theme.tabReading },
-                            { key: 'completed', icon: 'checkmark-circle', label: t('bookStatusFinished'), color: theme.tabFinished },
-                        ] as const).map(opt => {
-                            const active = status === opt.key;
-                            return (
-                                <TouchableOpacity
-                                    key={opt.key}
-                                    onPress={() => setListStatus(opt.key)}
-                                    activeOpacity={0.8}
-                                    style={[styles.statusSegment, active && { backgroundColor: opt.color }]}
-                                >
-                                    <Ionicons name={opt.icon} size={15} color={active ? '#fff' : opt.color} />
-                                    <ThemedText style={[styles.statusLabel, { color: active ? '#fff' : theme.text }]}>
-                                        {opt.label}
-                                    </ThemedText>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </View>
-                    {status && (
+                    <TouchableOpacity
+                        style={[styles.ctaButton, { backgroundColor: nextStep.color, shadowColor: nextStep.color }]}
+                        onPress={() => (nextStep.next ? setListStatus(nextStep.next) : removeFromList())}
+                        activeOpacity={0.82}
+                    >
+                        <Ionicons name={nextStep.icon} size={18} color="#fff" />
+                        <ThemedText style={styles.ctaText}>{nextStep.label}</ThemedText>
+                    </TouchableOpacity>
+                    {status && status !== 'completed' && (
                         <TouchableOpacity onPress={removeFromList} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} style={styles.removeLink}>
                             <ThemedText style={[styles.removeLinkText, { color: theme.error }]}>{t('bookRemoveFromList')}</ThemedText>
                         </TouchableOpacity>
@@ -439,26 +436,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 20,
         marginBottom: 6,
-    },
-    statusRow: {
-        flexDirection: 'row',
-        width: '100%',
-        padding: 4,
-        borderRadius: 15,
-        borderWidth: StyleSheet.hairlineWidth,
-    },
-    statusSegment: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        height: 40,
-        borderRadius: 11,
-    },
-    statusLabel: {
-        fontSize: 13,
-        fontWeight: '700',
     },
     removeLink: {
         marginTop: 10,
