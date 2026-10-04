@@ -99,13 +99,15 @@ export default function OnboardingScreen() {
 
     useEffect(() => {
         const load = async () => {
-            const [{ data: genreRows }, { data: subs }, trending] = await Promise.all([
+            const [genreResult, subResult, trending] = await Promise.all([
                 supabase.rpc('get_browsable_genres', { p_min_books: MIN_GENRE_BOOKS }),
                 supabase.rpc('get_onboarding_subcategories', { p_limit: 20 }),
                 getTrendingBooksByViews(20),
             ]);
-            if (genreRows) setGenres(genreRows as GenreOption[]);
-            if (subs) setSubcategories(subs);
+            if (genreResult.error) void logError(genreResult.error, 'onboarding/genres');
+            else if (genreResult.data) setGenres(genreResult.data as GenreOption[]);
+            if (subResult.error) void logError(subResult.error, 'onboarding/subcategories');
+            else if (subResult.data) setSubcategories(subResult.data);
             setTrendingBooks(trending);
         };
         load();
