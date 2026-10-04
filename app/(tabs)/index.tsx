@@ -12,6 +12,8 @@ import { logUserActivity } from '@/services/userActivity';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
@@ -132,6 +134,17 @@ async function computeDynamicPlan(uid: string, entries: ReadingEntry[], refreshK
 
 export default function HomeScreen() {
   const { t } = useTranslation();
+  const navigation = useNavigation<BottomTabNavigationProp<Record<string, undefined>>>();
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Pressing the Home tab while already on Home scrolls back to the top,
+  // the same as most tab bars. Tab presses on other tabs don't reach here.
+  useEffect(() => {
+    return navigation.addListener('tabPress', () => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
+  }, [navigation]);
+
   const { user } = useSession();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme() ?? 'light';
@@ -218,6 +231,7 @@ export default function HomeScreen() {
       <SafeAreaView edges={['bottom']} style={[styles.safeArea, { backgroundColor: theme.background }]}>
         <View style={styles.fadeContainer}>
           <ScrollView
+            ref={scrollRef}
             onScroll={handleScroll}
             scrollEventThrottle={150}
             decelerationRate={0.92}
