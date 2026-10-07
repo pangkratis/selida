@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Selida Account Deletion</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  :root {
+    --bg: #fbf7f0;
+    --surface: #ffffff;
+    --surface-2: #f3ede1;
+    --text: #2d3a2d;
+    --text-secondary: #5b6b5b;
+    --border: #e6ede6;
+    --accent: #2d8fd5;
+    --accent-soft: rgba(45, 143, 213, 0.1);
+    --accent-soft-strong: rgba(45, 143, 213, 0.18);
+    --mono-tint: #7a8a7a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1c18;
+      --surface: #2c2820;
+      --surface-2: #262319;
+      --text: #f2f9f3;
+      --text-secondary: #b7c2b7;
+      --border: #3d4a3d;
+      --accent: #6bb3ea;
+      --accent-soft: rgba(107, 179, 234, 0.14);
+      --accent-soft-strong: rgba(107, 179, 234, 0.22);
+      --mono-tint: #8fa08f;
+    }
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nunito', ui-rounded, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .wrap {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  header.doc-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    padding-bottom: 40px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mark { width: 68px; height: auto; }
+  h1 {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .meta {
+    font-size: 12.5px;
+    color: var(--mono-tint);
+    letter-spacing: 0.02em;
+  }
+  .lede {
+    max-width: 52ch;
+    color: var(--text-secondary);
+    font-size: 15px;
+    margin: 4px 0 0;
+  }
+
+  section {
+    margin-bottom: 40px;
+    scroll-margin-top: 24px;
+  }
+  section h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  section h2 .num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  section p { margin: 0 0 12px; font-size: 15px; }
+  section p:last-child { margin-bottom: 0; }
+  section ul, section ol { margin: 0 0 12px; padding-left: 1.2em; font-size: 15px; }
+  section li { margin-bottom: 6px; }
+  section li:last-child { margin-bottom: 0; }
+  strong { font-weight: 700; }
+  a { color: var(--accent); }
+
+  .callout {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-soft-strong);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .callout .callout-label {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .callout p { margin: 0; color: var(--text); }
+
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 8px 0 16px;
+  }
+  table.data-table th, table.data-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.data-table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 700;
+  }
+  .table-wrap { overflow-x: auto; }
+
+  .cta {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 12px 22px;
+    border-radius: 999px;
+    margin-top: 4px;
+  }
+  .cta:hover, .cta:focus-visible { opacity: 0.9; }
+
+  footer.doc-foot {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  @media (max-width: 480px) {
+    h1 { font-size: 25px; }
+  }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="doc-head">
+    <img class="mark" src="selida-mark.png" alt="Selida" width="1040" height="600">
+    <h1>Delete Your Account</h1>
+    <p class="lede">How to permanently delete your Selida account and data, whether or not you still have the app installed.</p>
+    <p class="meta mono">Effective 7 October 2026</p>
+  </header>
+
+  <section id="in-app">
+    <h2><span class="num">01</span>Delete in the app</h2>
+    <p>If you still have Selida installed, this is the fastest way — it takes effect immediately:</p>
+    <ol>
+      <li>Open Selida and sign in.</li>
+      <li>Go to the <strong>Profile</strong> tab, then <strong>Settings</strong>.</li>
+      <li>Scroll to the Session section and tap <strong>Delete Account</strong>.</li>
+      <li>Confirm. Your account is deleted right away — you'll be signed out and won't be able to log back in.</li>
+    </ol>
+  </section>
+
+  <section id="without-app">
+    <h2><span class="num">02</span>Request deletion without the app</h2>
+    <p>No app install or login needed. Email us from the address on your account and we'll delete it on your behalf:</p>
+    <p>
+      <a class="cta" href="mailto:pangkratis@gmail.com?subject=Delete%20my%20Selida%20account">Email pangkratis@gmail.com</a>
+    </p>
+    <p>Please send the request from the email address your Selida account uses, so we can verify it's you. We'll confirm once it's done — normally within a few days.</p>
+  </section>
+
+  <section id="what-deleted">
+    <h2><span class="num">03</span>What gets deleted</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr><th>Data</th><th>What happens</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Account &amp; profile</td>
+            <td>Your login, email, display name, and preferences are permanently deleted.</td>
+          </tr>
+          <tr>
+            <td>Reading list &amp; sessions</td>
+            <td>Every book you saved, its status, and your reading session history are permanently deleted.</td>
+          </tr>
+          <tr>
+            <td>App activity</td>
+            <td>Your book views, wishlist actions, and search history are permanently deleted.</td>
+          </tr>
+          <tr>
+            <td>Usage &amp; diagnostic logs</td>
+            <td>Crash reports and app-usage events tied to your account are disconnected from it — the account link is removed, so the record can no longer identify you, but the anonymized technical record (e.g. "a crash happened on this app version") is kept to help us fix bugs and isn't deleted outright.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <span class="callout-label">In short</span>
+      <p>Everything that identifies you is deleted. A small amount of anonymized diagnostic data may be kept, the same way it would be if it had never been linked to an account.</p>
+    </div>
+  </section>
+
+  <section id="contact">
+    <h2><span class="num">04</span>Questions</h2>
+    <p>See our <a href="privacy.html">Privacy Policy</a> for the full detail on what we collect and why, or reach us at <a href="mailto:pangkratis@gmail.com">pangkratis@gmail.com</a>.</p>
+  </section>
+
+  <footer class="doc-foot">
+    <p class="mono">Selida — Account Deletion — v1.0</p>
+  </footer>
+
+</div>
+</body>
+</html>
