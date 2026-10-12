@@ -340,6 +340,23 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   `app/catalog-ingestion.tsx`'s admin "Book Lookup" box — **left unfixed, user confirmed they
   don't use that feature**. Don't fix this without checking with the user first, per that note.
 
+### 7d. Personalised recommendations were timing out — FIXED (2026-10-12)
+- `errorLogs` had 30 `recommendations/rpc` 57014 timeouts (first 2026-10-04): v1 made every
+  category-matching book a candidate (57,961 for the most active user) and took 8.8 s, so users
+  silently got trending. Replaced by `get_recommendations` (migration_22) — see `project-state.md`
+  → "recommendations.ts — v2".
+- **Open — fiction genres are nearly empty**: literature 44,266 books, but crime-thriller 98,
+  fantasy 44, science-fiction 32, horror 11, romance 9. Fiction sub-genres only come from Biblionet
+  subject headings, and only ~2% of books are subject-synced (see 7c). A crime fan therefore has
+  a ~100-book pool. Overall genre coverage is 148,848 / 186,051 (80%) — the old 29% figure is stale.
+- **Open — top genre dominates**: subject/author matches outrank genre-only books, so a secondary
+  genre (e.g. 30% technology) gets no slots in the top 250.
+- **Decided with the user (2026-10-12)**: no AI or paid services for the MVP (embeddings and
+  LLM-generated tags both discussed and declined); mood tags will come later from readers picking
+  a mood when they finish a book; keep popularity in the score even though `bookStats` is nearly
+  empty pre-launch — don't design scoring around pre-launch data.
+- Unused leftovers: `books.searchTags` (word fragments, 16,058 books) is no longer scored.
+
 ### 7b. Ingestion silently dropped ~22% of books with an empty Writer field — FIXED (2026-09-21)
 - User-reported as "ingestion dates don't change, we don't get to next month/year" — investigation
   found the cursor-advancement logic itself was actually correct (verified live: fetched a real
@@ -360,6 +377,30 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   every book with `syncedContributors=false` (the column default for every new row) regardless of
   `books.authors`. Same pattern as subcategories being deliberately deferred to their own sync
   pass rather than required at initial ingestion.
+
+### 7c. "Sync subcategories" threw a DB statement-timeout error — FIXED (2026-10-09)
+- User-reported as "throws an error." `syncSubcategories()`'s batch-selection query
+  (`WHERE "syncedSub" = false AND "biblionetId" IS NOT NULL ORDER BY "popularityCount" DESC
+  LIMIT 900`) had no supporting index. `books` has grown to **~187,500 rows** — roughly 10x the
+  ~18,753 last measured in #7 above — and the full scan + sort now exceeds Postgres's statement
+  timeout (`57014`).
+- **Confirmed live, not just read from the query**: the identical filter without the
+  `ORDER BY` returned instantly via a direct REST call; adding `ORDER BY "popularityCount" DESC`
+  reproduced `57014` directly, independent of the app. Even a bare `count=exact` on
+  `syncedSub = false` alone timed out — table size, not query shape, is the root driver.
+- **Fixed**: `sql/migration_21_subsync_queue_index.sql` — a partial index matching the query
+  shape exactly: `CREATE INDEX books_subsync_queue_idx ON books ("popularityCount" DESC) WHERE
+  "syncedSub" = false AND "biblionetId" IS NOT NULL`. Applied live via
+  `supabase db query --linked -f sql/migration_21_subsync_queue_index.sql`; re-ran the exact
+  failing query afterward and confirmed it now returns in milliseconds.
+- **Current completion, measured while diagnosing this**: only **1,526 of 187,514 books**
+  (0.8%) have `syncedSub = true` (3,401 `book_subcategories` rows, 593 distinct subject names) —
+  far lower than #7's 7.3%, because the catalog has grown ~10x since that measurement while
+  Biblionet's 1,000 req/day cap (and this sync being manually-triggered, and apparently broken
+  for an unknown stretch before this fix) kept throughput flat. **Not fixed by this migration**:
+  at the 1,000/day ceiling, closing the ~186,000-book gap is a throughput problem, not just an
+  error-handling one — worth a real conversation before assuming the fix here means subcategory
+  coverage will meaningfully improve on its own.
 - Verified against the same real page that surfaced the bug: 94/100 saveable after the fix (was
   72/100), CoverImage/TitlesID/Summary still correctly enforced.
 - Checked both `book.authors` read sites before changing this: home screen's "more from author"

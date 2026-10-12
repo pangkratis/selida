@@ -1,3 +1,5 @@
+-- SUPERSEDED by sql/migration_22_recommendations_v2.sql (get_recommendations).
+-- Still deployed for builds made before 2026-10-12; the live copy also takes p_tags.
 -- =============================================================================
 -- get_book_recommendations
 -- -----------------------------------------------------------------------------

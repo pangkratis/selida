@@ -312,19 +312,33 @@ hex). Uses the app's own theme tokens throughout.
 
 ## Services (services/)
 
-### recommendations.ts — Server-side scoring (rewritten 2026-06-23)
-- SCORING MOVED TO POSTGRES: `supabase.rpc('get_book_recommendations', {...})` — one round-trip
-- SQL function in `sql/get_recommendations.sql` (SECURITY DEFINER, STABLE); indexes in `sql/recommendation_indexes.sql`
-- Client extracts weighted preferences from readingList (top 30): categories, SUBCATEGORIES (new), authors, tags, publishers, language
-- Status weights: wishlist=1, reading=2, completed=3 × history recency decay (exp, floor 0.6)
-- SQL weights: category +15, SUBCATEGORY +12, author +20, tag +12, publisher +8, language mismatch -15, popularity boost capped +10 (log of views/wishlist/reading/completed × lastActivityAt recency mult)
-- RPC params: p_categories, p_subcategories, p_authors, p_tags, p_publishers, p_preferred_language, p_source (null=all), p_exclude_ids (readingList+seen), p_limit
-- RPC returns pre-scored rows mapped directly to ScoredBook (no client scoring). match_reason built in SQL.
-- Client still owns: 10-min pool cache, seen-recs dedupe (max 50), jitter (0..30), author diversity (max 3/author), trending fallback
-- REMOVED: fetchBookStatsMap, 3 parallel candidate queries, shuffleSlice, CANDIDATE_FETCH_LIMIT
-- Added `subcategories?: string[]` to Book type in constants/types.ts
+### recommendations.ts — v2, profile + scoring fully server-side (rewritten 2026-10-12)
+- Client calls `supabase.rpc('get_recommendations', { p_exclude_ids, p_limit })` — nothing else.
+  The function uses `auth.uid()`; `authenticated` only (anon gets 401). `userId` on
+  `getRecommendationsForUser(userId, limitCount)` only keys the local cache. The old
+  `source`/`preloadedList` params are gone.
+- SQL in `sql/migration_22_recommendations_v2.sql`: internal `fn_recommend_ids(p_user_id, ...)`
+  (execute revoked from clients; call it from the SQL console to test any user) + the public
+  wrapper that joins `books`.
+- Profile: last 30 `readingList` rows, weight = status (wishlist 1 / reading 2 / completed 3) ×
+  recency decay (floor 0.6). Onboarding `preferredGenres` / `preferredSubcategories` are added at
+  weight 1 each, so they carry a new user and fade as history grows (no separate cold-start path).
+- Candidates (narrow tables first — this is what fixed the timeout): author GIN match (≤500),
+  `book_subcategories` matches (≤1000), a slice of each of the top 6 genres from `book_genres`
+  (≤500 × fit, sampled by book_id range from a per-user per-day key, so it rotates daily; needs
+  index `book_genres_genre_book`), and the most-engaged `bookStats` books in those genres (≤300).
+- Score: 30 × genre fit (0..1) + 25 author + 6 per shared subject (max 18) + 4 publisher
+  − 15 language mismatch (empty language = unknown, no penalty) + popularity (max 10, same formula
+  as v1). Two passes: base score from narrow tables, then `books` is read only for the top
+  `2 × p_limit`. Editions deduped on lower(title) + first author. `match_reason` is a code
+  (author / subject / genre / popular) — not shown anywhere in the UI yet.
+- Client keeps: 10-min pool cache, seen list (max 50, in memory), jitter 0..5 applied BEFORE the
+  3-per-author cap (v1 jittered after, which undid the cap), trending fallback on error/empty.
+- Measured live: ~75 ms warm, 0.6–1.0 s cold, vs 8.8 s for v1 on the same user.
+- v1 `get_book_recommendations` is still deployed (older builds call it; it times out and they
+  fall back to trending). `get_genre_subject_headings` is no longer called by the client.
+- Any build made before 2026-10-12 does not contain this change.
 - getTrendingBooksByViews(limit): unchanged — bookStats ordered by views DESC (2 queries)
-- Known issue: detects coverUrl-as-bookId via '/' or 'http' check — data integrity workaround (kept)
 
 ### readingSessions.ts — Core Feature, Complete
 - startReadingSession: writes lastSessionStart timestamp
@@ -426,6 +440,17 @@ hex). Uses the app's own theme tokens throughout.
   valid on Biblionet's side) should be rotated by whoever administers that account — it was
   exposed in git history and past local builds regardless of this fix. Not the app's call to make;
   flagged to the user.
+
+### syncSubcategories() batch query was timing out (fixed 2026-10-09)
+`books` grew to ~187,500 rows (10x its size when `syncSubcategories()`'s `ORDER BY
+"popularityCount" DESC` ordering was added) with no index backing
+`WHERE "syncedSub" = false AND "biblionetId" IS NOT NULL ORDER BY "popularityCount" DESC` — the
+full scan + sort started exceeding Postgres's statement timeout (`57014`), surfaced in the admin
+UI as "Sync subcategories" erroring. Fixed via `sql/migration_21_subsync_queue_index.sql`, a
+partial index matching the query shape exactly (`books_subsync_queue_idx`), applied live via
+`supabase db query --linked -f ...`. Full diagnosis (confirmed live via direct REST calls,
+current 0.8% sync-completion figure) in `issues-opportunities.md` → 7c; don't re-diagnose this
+from scratch if it resurfaces — check whether the index still exists first.
 
 ### Biblionet API shape, confirmed 2026-09-19 (investigating subcategory-sync speed)
 Discussed speeding up subcategory sync (1 request per book, 1000 req/day account limit, resets

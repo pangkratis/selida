@@ -352,8 +352,7 @@ function RecommendationSection({ refreshKey, readingListEntries }: { refreshKey:
       setLoading(true);
       if (!user?.uid) { setLoading(false); return; }
       try {
-        const preloaded = readingListEntries.length > 0 ? readingListEntries : undefined;
-        const books = await getRecommendationsForUser(user.uid, 50, undefined, preloaded);
+        const books = await getRecommendationsForUser(user.uid, 50);
         setRecommendations(books);
       } catch (e) {
         void logError(e, 'home/recommendations');
