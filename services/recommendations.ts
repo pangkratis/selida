@@ -220,27 +220,3 @@ export const getTrendingBooksByViews = async (limitCount: number = 10, source?: 
         return [];
     }
 };
-
-export const getTrendingBooksPage = async (offset: number, limit: number): Promise<ScoredBook[]> => {
-    try {
-        const { data: statsData } = await supabase
-            .from('bookStats')
-            .select('bookId, views')
-            .order('views', { ascending: false })
-            .order('bookId', { ascending: true })
-            .range(offset, offset + limit - 1);
-        if (!statsData || statsData.length === 0) return [];
-
-        const ids = statsData.map((d: any) => d.bookId as string);
-        const booksById = await fetchBooksByIds(ids);
-        return statsData
-            .map((d: any) => {
-                const book = booksById.get(d.bookId);
-                return book ? ({ ...book, score: d.views || 0, matchReason: `${d.views || 0} views` } as ScoredBook) : null;
-            })
-            .filter((b): b is ScoredBook => !!b);
-    } catch (e) {
-        void logError(e, 'recommendations/trendingPage');
-        return [];
-    }
-};

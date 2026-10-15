@@ -1,7 +1,7 @@
 import { Book } from '../constants/types';
 import { supabase } from './supabaseConfig';
 
-export type ShelfKind = 'genre' | 'subcategory' | 'author' | 'quick' | 'new';
+export type ShelfKind = 'genre' | 'subcategory' | 'author' | 'quick' | 'new' | 'trending';
 
 export const SHELF_PAGE_SIZE = 24;
 

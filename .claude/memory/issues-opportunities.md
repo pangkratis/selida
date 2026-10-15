@@ -364,10 +364,14 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
 - **Still open**: a literature-heavy reader gets one genre topic, so fewer Because-you-read shelves
   than before (up to 3 unique topics) and usually no Popular-in shelf. It improves as the
   subject-heading sync grows (more specific topics per book).
-- **Still open — editions by id**: the seed/reading-list exclusion is by book id, so another edition
-  of the seed book can appear in its own "Because you read" shelf (seen with Σφαγείο 5). 49,711
-  title+author duplicate pairs in the catalogue; 24 of 44 saved books have another edition.
-  Fix options: title+first-author check in the queries, or a precomputed work-key column.
+- **Editions of saved books — FIXED (2026-10-17, migration_25)**: recommendations and every shelf
+  now exclude the user's saved books AND their other editions (same lower(title) + lower(first
+  author)) via `fn_saved_work_ids(user)`. Was id-only, so a second edition of Σφαγείο 5 appeared
+  in its own "Because you read" shelf. Verified: 0 leaks across all shelf kinds and 250 recs for a
+  user whose 29 saved rows expand to 113 ids (84 hidden editions). Not covered: Recently Viewed
+  (still id-only, it is the user's own history). Editions are still not collapsed against each
+  other in genre/subcategory/quick/new shelves (only recs and the author shelf collapse them);
+  a precomputed work-key column would fix that properly (49,711 duplicate pairs).
 - Trending ends after ~112 books (all of `bookStats`); it only gets deep once there is real usage.
 
 ### 7b. Ingestion silently dropped ~22% of books with an empty Writer field — FIXED (2026-09-21)

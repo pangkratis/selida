@@ -11,7 +11,7 @@
   within 2 screens of the end, module-level 10-min cache, `clearPagedShelfCache()` on pull-to-
   refresh) → `HorizontalBookShelf` (`onEndReached`, `loadingMore` footer spinner).
   Sources: Recommended = `getRecommendationPage` (slices of one jittered, author-capped pool of
-  ≤250, so pages are stable); Trending = `getTrendingBooksPage` (bookStats by views, ends when
+  ≤250, so pages are stable); Trending = `fetchShelfPage('trending')` (bookStats by views, ends when
   bookStats runs out — only ~112 rows pre-launch); Because-you-read / Popular-in / More-from-
   author / Quick reads / New arrivals = `fetchShelfPage` (services/shelves.ts) → RPC
   `get_shelf_books(kind, key, offset, limit, exclude_id)` (sql/migration_23_shelf_pages.sql).
@@ -46,7 +46,12 @@
   `get_shelf_books` are now `genre | subcategory | author | quick | new` (`category` removed,
   sql/migration_24_shelf_genre_subject.sql). Only 38 of 1,016 subject headings have ≥ 40 books
   (subcategory sync ~2% done), so most shelves are genre shelves for now.
-- Recently Viewed is unchanged (≤30, personal history).
+- **Saved books and their editions are hidden (migration_25)**: `fn_saved_work_ids(user)` (internal,
+  execute revoked from clients) returns the user's saved ids plus other editions matched by
+  lower(title) + lower(first author), using index `books_title_lower_idx`. `fn_recommend_ids` and
+  `get_shelf_books` (all kinds, incl. new `trending`) exclude that set while picking ids, so pages
+  stay full. The CTE is `materialized` — without it recommendations took 2 s instead of ~90 ms.
+- Recently Viewed is unchanged (≤30, personal history, hides by id only).
 - Recent Activity: placeholder — empty state only, not implemented
 - Pull-to-refresh via RefreshControl; useRef for interval management
 

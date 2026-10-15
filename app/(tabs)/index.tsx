@@ -8,7 +8,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { clearPagedShelfCache, usePagedShelf } from '@/hooks/use-paged-shelf';
 import { logError, reportError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
-import { getRecommendationPage, getTrendingBooksPage, invalidateRecommendationsCache } from '@/services/recommendations';
+import { getRecommendationPage, invalidateRecommendationsCache } from '@/services/recommendations';
 import { fetchShelfPage } from '@/services/shelves';
 import { logUserActivity } from '@/services/userActivity';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -452,7 +452,7 @@ function TrendingSection({ refreshKey, readingListEntries }: KeyedShelfProps) {
     <PagedShelfSection
       cacheKey={uid ? `trending-${uid}-${refreshKey}` : null}
       errorContext="home/trending"
-      load={getTrendingBooksPage}
+      load={(offset, limit) => fetchShelfPage('trending', null, offset, limit)}
       title={t('homeTrending')}
       keyPrefix="trending"
       activityContext="home_trending"
