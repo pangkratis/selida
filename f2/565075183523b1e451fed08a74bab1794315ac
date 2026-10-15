@@ -1,0 +1,43 @@
+services/recommendations.ts
+  s_d6d65f87308408::t_1b78926def26c9 28-29,32,90,92,94,96,107,111,118-145,222-246
+.claude/memory/issues-opportunities.md
+  s_d6d65f87308408::t_0af07c6b09594b 360-367
+sql/migration_23_shelf_pages.sql
+  s_d6d65f87308408::t_c584b100f4677f 94,96-107,109-110
+  s_d6d65f87308408::t_cc9eec0e7c382f 1-93,95,108,111-117
+hooks/use-paged-shelf.ts
+  s_d6d65f87308408::t_f277c618458eab 1-92
+components/horizontal-book-shelf.tsx
+  s_d6d65f87308408::t_29d467fe7ddec1 21,74-75
+  s_d6d65f87308408::t_236bc1952841fb 10-12,132,135,154
+  s_d6d65f87308408::t_e21c1964cdddef 76
+  s_d6d65f87308408::t_ff632b0b9ed915 8,19-20,30-31,77-81,107-111,155-160
+  s_d6d65f87308408::t_22497086216726 22,32
+  s_d6d65f87308408::t_3bb3ac58279d2f 9
+app/(tabs)/index.tsx
+  s_d6d65f87308408::t_22497086216726 382
+  s_d6d65f87308408::t_466a21d278702b 18,20
+  s_d6d65f87308408::t_1e6ac1276b2918 8,11-12,176,331-342,344-348,353,355-358,361-363,367-376,378-381,384,392,394,396-397,399-401,403-412,416,418,420-429,433,435,437-445,449,451,453-461,465,467-479,481-495,497-499,501-509
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_64787944f12846 31-35
+  s_d6d65f87308408::t_d4ec46870a4da6 23-30,36-38
+  s_d6d65f87308408::t_0af07c6b09594b 8-22,39-41
+services/shelves.ts
+  s_d6d65f87308408::t_d1177e389b007f 1-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "f2565075183523b1e451fed08a74bab1794315ac",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
