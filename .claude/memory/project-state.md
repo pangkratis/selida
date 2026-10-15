@@ -36,8 +36,16 @@
   Testing gotcha: Fast Refresh keeps a shelf's native scroll offset, so judge snapping after a
   cold start (force-stop Expo Go), and dismiss Expo Go's first-launch developer-menu popup.
   adb synthetic swipes can't judge real flick momentum — check on a real device.
-- Category shelves still use `books.categories` (seed = `categories[0]`), so "Popular in
-  Γενικά βιβλία" shelves exist — pre-existing, see issues-opportunities 7e.
+- **Topic shelves no longer use `books.categories` (2026-10-17)**: "Because you read" and
+  "Popular in" are seeded from a genre or a subject heading. `computeDynamicPlan` (index.tsx) picks,
+  per sampled reading-list book, the most specific subject heading that has ≥ `MIN_TOPIC_BOOKS`
+  (40) books (counts via `subcategories(book_subcategories(count))`), else its best genre that has
+  ≥ 40 books (`get_browsable_genres(p_min_books: 40)` + `book_genres(genres(...))` embed). Seeds are
+  unique per topic; the Popular-in shelf takes a topic not already used and is **omitted** when
+  there is none (the old fallback repeated a Because-you-read topic). Shelf kinds in
+  `get_shelf_books` are now `genre | subcategory | author | quick | new` (`category` removed,
+  sql/migration_24_shelf_genre_subject.sql). Only 38 of 1,016 subject headings have ≥ 40 books
+  (subcategory sync ~2% done), so most shelves are genre shelves for now.
 - Recently Viewed is unchanged (≤30, personal history).
 - Recent Activity: placeholder — empty state only, not implemented
 - Pull-to-refresh via RefreshControl; useRef for interval management

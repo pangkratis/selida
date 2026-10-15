@@ -357,12 +357,17 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   empty pre-launch — don't design scoring around pre-launch data.
 - Unused leftovers: `books.searchTags` (word fragments, 16,058 books) is no longer scored.
 
-### 7e. Home category shelves seed on junk categories (noted 2026-10-15, not fixed)
-- `computeDynamicPlan` takes `categories[0]` of a few reading-list books as shelf seeds. 24,239
-  books are "Γενικά βιβλία", so users get "Popular in Γενικά βιβλία" / "Because you read X" shelves
-  of arbitrary general books. Quick win: skip that category as a seed. Better: seed on genres —
-  but a reader of only literature would then get one "Because you read" shelf instead of up to
-  three (genres are coarser than categories there), so decide the trade-off first.
+### 7e. Home category shelves seeded on junk categories — FIXED (2026-10-17)
+- Was: shelves used `categories[0]` of reading-list books, so users got "Popular in Γενικά βιβλία".
+  Now genres / subject headings with ≥ 40 books (see project-state.md → Home). The user's
+  decision: no categories for shelves; use genres or subcategories.
+- **Still open**: a literature-heavy reader gets one genre topic, so fewer Because-you-read shelves
+  than before (up to 3 unique topics) and usually no Popular-in shelf. It improves as the
+  subject-heading sync grows (more specific topics per book).
+- **Still open — editions by id**: the seed/reading-list exclusion is by book id, so another edition
+  of the seed book can appear in its own "Because you read" shelf (seen with Σφαγείο 5). 49,711
+  title+author duplicate pairs in the catalogue; 24 of 44 saved books have another edition.
+  Fix options: title+first-author check in the queries, or a precomputed work-key column.
 - Trending ends after ~112 books (all of `bookStats`); it only gets deep once there is real usage.
 
 ### 7b. Ingestion silently dropped ~22% of books with an empty Writer field — FIXED (2026-09-21)

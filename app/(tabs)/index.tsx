@@ -27,17 +27,20 @@ const SECTION_CACHE_TTL = 10 * 60 * 1000;
 const READING_LIST_CACHE_TTL = 5 * 60 * 1000;
 const TOTAL_SECTIONS = 11;
 const INITIAL_REVEALED = 4;
+// A genre or subject heading needs this many books to be worth a shelf.
+const MIN_TOPIC_BOOKS = 40;
 
 /* ── Types ─────────────────────────────────────────────────────────── */
 
 type ReadingEntry = { bookId: string; status?: string; addedAt?: any };
 
-interface BYRSeed { bookId: string; title: string; category: string; }
+interface ShelfTopic { kind: 'genre' | 'subcategory'; key: string; labelEn: string; labelEl: string; }
+interface BYRSeed { bookId: string; title: string; topic: ShelfTopic; }
 interface MFASeed { author: string; }
 interface DynamicPlan {
   becauseYouRead: BYRSeed[];
   moreFromAuthor: MFASeed[];
-  popularCategory: string | null;
+  popularTopic: ShelfTopic | null;
 }
 
 /* ── Module-level caches ───────────────────────────────────────────── */
@@ -67,31 +70,63 @@ function SeeAllDots({ onPress }: { onPress: () => void }) {
 
 /* ── Dynamic plan computation ──────────────────────────────────────── */
 
+const topicId = (t: ShelfTopic) => `${t.kind}:${t.key}`;
+
 async function computeDynamicPlan(uid: string, entries: ReadingEntry[], refreshKey: number): Promise<DynamicPlan> {
   const cacheKey = `plan-${uid}-${refreshKey}`;
   const cached = dynamicPlanCache.get(cacheKey);
   if (cached && Date.now() - cached.ts < SECTION_CACHE_TTL) return cached.plan;
 
-  if (entries.length === 0) return { becauseYouRead: [], moreFromAuthor: [], popularCategory: null };
+  if (entries.length === 0) return { becauseYouRead: [], moreFromAuthor: [], popularTopic: null };
 
   // Shuffle for variety — different seeds each session/refresh
   const shuffled = [...entries].sort(() => Math.random() - 0.5);
   const sampleIds = [...new Set(shuffled.map(e => e.bookId))].slice(0, 7);
 
-  const { data: snapData } = await supabase.from('books').select('*').in('id', sampleIds);
-  const bookMap = new Map((snapData ?? []).map((d: any) => [d.id, d as Book]));
+  const [booksRes, genresRes, browsableRes] = await Promise.all([
+    supabase.from('books').select('*').in('id', sampleIds),
+    supabase.from('book_genres').select('book_id, confidence, genres(slug, name_en, name_el)').in('book_id', sampleIds),
+    supabase.rpc('get_browsable_genres', { p_min_books: MIN_TOPIC_BOOKS }),
+  ]);
+  const bookMap = new Map((booksRes.data ?? []).map((d: any) => [d.id, d as Book]));
+  const allowedGenres = new Set(((browsableRes.data ?? []) as { slug: string }[]).map(g => g.slug));
 
-  // Up to 3 unique-category seeds for BecauseYouRead
-  const usedCategories = new Set<string>();
+  // Subject headings are only worth a shelf when enough books carry them.
+  const subjectNames = [...new Set([...bookMap.values()].flatMap(b => b.subcategories ?? []))];
+  const subjectCounts = new Map<string, number>();
+  if (subjectNames.length > 0) {
+    const { data } = await supabase.from('subcategories').select('name, book_subcategories(count)').in('name', subjectNames);
+    for (const row of (data ?? []) as any[]) subjectCounts.set(row.name, row.book_subcategories?.[0]?.count ?? 0);
+  }
+
+  const genreByBook = new Map<string, { conf: number; topic: ShelfTopic }>();
+  for (const row of (genresRes.data ?? []) as any[]) {
+    const g = row.genres;
+    if (!g || !allowedGenres.has(g.slug)) continue;
+    const best = genreByBook.get(row.book_id);
+    if (!best || row.confidence > best.conf) {
+      genreByBook.set(row.book_id, { conf: row.confidence, topic: { kind: 'genre', key: g.slug, labelEn: g.name_en, labelEl: g.name_el } });
+    }
+  }
+
+  // The most specific subject heading that still has enough books, else the book's genre.
+  const topicFor = (book: Book): ShelfTopic | null => {
+    const subject = (book.subcategories ?? [])
+      .filter(name => (subjectCounts.get(name) ?? 0) >= MIN_TOPIC_BOOKS)
+      .sort((a, b) => (subjectCounts.get(a) ?? 0) - (subjectCounts.get(b) ?? 0))[0];
+    if (subject) return { kind: 'subcategory', key: subject, labelEn: subject, labelEl: subject };
+    return genreByBook.get(book.id)?.topic ?? null;
+  };
+
+  // Up to 3 seeds with different topics for BecauseYouRead
+  const usedTopics = new Set<string>();
   const byrSeeds: BYRSeed[] = [];
   for (const id of sampleIds) {
     const book = bookMap.get(id);
-    if (!book?.categories?.[0]) continue;
-    const cat = book.categories[0];
-    if (!usedCategories.has(cat)) {
-      usedCategories.add(cat);
-      byrSeeds.push({ bookId: id, title: book.title, category: cat });
-    }
+    const topic = book && topicFor(book);
+    if (!book || !topic || usedTopics.has(topicId(topic))) continue;
+    usedTopics.add(topicId(topic));
+    byrSeeds.push({ bookId: id, title: book.title, topic });
     if (byrSeeds.length >= 3) break;
   }
 
@@ -109,19 +144,16 @@ async function computeDynamicPlan(uid: string, entries: ReadingEntry[], refreshK
     if (mfaSeeds.length >= 2) break;
   }
 
-  // Popular category — prefer one not already covered by BYR
-  let popularCategory: string | null = null;
+  // Popular shelf: a topic not already covered above. No fallback — repeating
+  // a Because-you-read topic would show nearly the same books twice.
+  let popularTopic: ShelfTopic | null = null;
   for (const id of sampleIds) {
     const book = bookMap.get(id);
-    if (!book?.categories?.[0]) continue;
-    const cat = book.categories[0];
-    if (!usedCategories.has(cat)) { popularCategory = cat; break; }
-  }
-  if (!popularCategory && byrSeeds.length > 0) {
-    popularCategory = byrSeeds[Math.floor(Math.random() * byrSeeds.length)].category;
+    const topic = book && topicFor(book);
+    if (topic && !usedTopics.has(topicId(topic))) { popularTopic = topic; break; }
   }
 
-  const plan: DynamicPlan = { becauseYouRead: byrSeeds, moreFromAuthor: mfaSeeds, popularCategory };
+  const plan: DynamicPlan = { becauseYouRead: byrSeeds, moreFromAuthor: mfaSeeds, popularTopic };
   dynamicPlanCache.set(cacheKey, { plan, ts: Date.now() });
   return plan;
 }
@@ -202,7 +234,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!user?.uid) return;
     if (readingListEntries.length === 0) {
-      setDynamicPlan({ becauseYouRead: [], moreFromAuthor: [], popularCategory: null });
+      setDynamicPlan({ becauseYouRead: [], moreFromAuthor: [], popularTopic: null });
       return;
     }
     computeDynamicPlan(user.uid, readingListEntries, refreshKey)
@@ -275,10 +307,10 @@ export default function HomeScreen() {
                 readingListEntries={readingListEntries}
               />
             )}
-            {revealedCount > 5 && dynamicPlan?.popularCategory && (
-              <PopularInCategoryShelf
-                key={`pic-${dynamicPlan.popularCategory}`}
-                category={dynamicPlan.popularCategory}
+            {revealedCount > 5 && dynamicPlan?.popularTopic && (
+              <PopularInTopicShelf
+                key={`pit-${topicId(dynamicPlan.popularTopic)}`}
+                topic={dynamicPlan.popularTopic}
                 readingListEntries={readingListEntries}
               />
             )}
@@ -435,9 +467,9 @@ function BecauseYouReadShelf({ seed, readingListEntries }: ShelfProps & { seed: 
   const uid = useSession().user?.uid;
   return (
     <PagedShelfSection
-      cacheKey={uid ? `byr-${uid}-${seed.bookId}` : null}
+      cacheKey={uid ? `byr-${uid}-${seed.bookId}-${topicId(seed.topic)}` : null}
       errorContext="home/becauseYouRead"
-      load={(offset, limit) => fetchShelfPage('category', seed.category, offset, limit, seed.bookId)}
+      load={(offset, limit) => fetchShelfPage(seed.topic.kind, seed.topic.key, offset, limit, seed.bookId)}
       title={t('homeBecauseYouRead', { title: shortLabel(seed.title, 22) })}
       keyPrefix={`byr-${seed.bookId}`}
       activityContext="home_because_you_read"
@@ -462,16 +494,17 @@ function MoreFromAuthorShelf({ seed, readingListEntries }: ShelfProps & { seed: 
   );
 }
 
-function PopularInCategoryShelf({ category, readingListEntries }: ShelfProps & { category: string }) {
-  const { t } = useTranslation();
+function PopularInTopicShelf({ topic, readingListEntries }: ShelfProps & { topic: ShelfTopic }) {
+  const { t, i18n } = useTranslation();
   const uid = useSession().user?.uid;
+  const label = i18n.language.startsWith('el') ? topic.labelEl : topic.labelEn;
   return (
     <PagedShelfSection
-      cacheKey={uid ? `pic-${uid}-${category}` : null}
-      errorContext="home/popularCategory"
-      load={(offset, limit) => fetchShelfPage('category', category, offset, limit)}
-      title={t('homePopularIn', { category: shortLabel(category, 25) })}
-      keyPrefix={`pic-${category}`}
+      cacheKey={uid ? `pit-${uid}-${topicId(topic)}` : null}
+      errorContext="home/popularTopic"
+      load={(offset, limit) => fetchShelfPage(topic.kind, topic.key, offset, limit)}
+      title={t('homePopularIn', { category: shortLabel(label, 25) })}
+      keyPrefix={`pit-${topicId(topic)}`}
       activityContext="home_popular_category"
       readingListEntries={readingListEntries}
     />
