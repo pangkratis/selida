@@ -5,8 +5,40 @@
 ### Home (index.tsx) — Complete & Polished
 - Banner carousel: 3 gradient banners, auto-scroll every 4s, dot pagination with AccentPalette
 - Continue Reading: books with status='reading', dual-state timer (play/stop), circular progress rings, real-time elapsed time display
-- Recommendations: personalized via recommendations.ts, "See all" → book-list
-- Trending: HorizontalBookShelf ordered by view count
+- **Endless shelves (2026-10-15)**: Home is meant to be browsed by scrolling the shelves; "See all" →
+  book-list is the fallback. Every shelf except Recently Viewed is one `PagedShelfSection`
+  (index.tsx) → `usePagedShelf` (hooks/use-paged-shelf.ts: pages of 24, loads the next page when
+  within 2 screens of the end, module-level 10-min cache, `clearPagedShelfCache()` on pull-to-
+  refresh) → `HorizontalBookShelf` (`onEndReached`, `loadingMore` footer spinner).
+  Sources: Recommended = `getRecommendationPage` (slices of one jittered, author-capped pool of
+  ≤250, so pages are stable); Trending = `getTrendingBooksPage` (bookStats by views, ends when
+  bookStats runs out — only ~112 rows pre-launch); Because-you-read / Popular-in / More-from-
+  author / Quick reads / New arrivals = `fetchShelfPage` (services/shelves.ts) → RPC
+  `get_shelf_books(kind, key, offset, limit, exclude_id)` (sql/migration_23_shelf_pages.sql).
+- **Why an RPC**: paging straight off `books` took 3.5–16 s at 186k rows (8 s authenticated
+  timeout). The RPC picks ids from narrow tables (`book_categories`, index-only `pageCount`
+  scan, `createdAt` index), orders by bookStats engagement then a per-user per-day md5 shuffle
+  (stable while paging, rotates daily), excludes the caller's reading list server-side, and
+  reads `books` for the page only. Author kind collapses editions by title. 20–400 ms warm.
+- **Snap-to-start (2026-10-15)**: Home shelves pass `snapCenter` (name is historical) to
+  `HorizontalBookShelf`: `snapToInterval` = card 140 + gap 16 with the normal 20 left padding, so a
+  small swipe moves exactly one book and each snap lines that book up with the left margin; the
+  first book rests at the margin like before. Opt-in because Explore/onboarding use the same shelf
+  inside narrower padded containers. **Tried and dropped**: symmetric padding `(screenWidth−140)/2`
+  to centre books (leaves a big empty gap before the first book), `snapToOffsets` with a
+  left-aligned first book and centred rest (cards rested at odd positions on Android), and
+  `decelerationRate="normal"` for longer flicks (small swipes stopped advancing) — stays `"fast"`.
+  `disableIntervalMomentum` is on so a medium swipe also moves one book. Measured on the emulator
+  (adb swipes, fixed gestures; book indices from `uiautomator dump`): before it, a 500px/150ms
+  swipe moved 2 books; after it, 200px and 500px (≈ a third of the screen) move exactly 1,
+  700px moves 2, a 1150px/90ms flick moves 3. Android's `disableIntervalMomentum` doesn't cap hard
+  flicks at one, which suits browsing.
+  Testing gotcha: Fast Refresh keeps a shelf's native scroll offset, so judge snapping after a
+  cold start (force-stop Expo Go), and dismiss Expo Go's first-launch developer-menu popup.
+  adb synthetic swipes can't judge real flick momentum — check on a real device.
+- Category shelves still use `books.categories` (seed = `categories[0]`), so "Popular in
+  Γενικά βιβλία" shelves exist — pre-existing, see issues-opportunities 7e.
+- Recently Viewed is unchanged (≤30, personal history).
 - Recent Activity: placeholder — empty state only, not implemented
 - Pull-to-refresh via RefreshControl; useRef for interval management
 

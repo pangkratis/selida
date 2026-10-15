@@ -5,18 +5,19 @@ import { AccentPalette, Colors, roundedFont, toTransparent } from '@/constants/t
 import { Book } from '@/constants/types';
 import { HomeScrollContext, HomeScrollContextValue, HomeScrollListener } from '@/hooks/home-scroll-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { clearPagedShelfCache, usePagedShelf } from '@/hooks/use-paged-shelf';
 import { logError, reportError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
-import { getRecommendationsForUser, getTrendingBooksByViews, invalidateRecommendationsCache } from '@/services/recommendations';
+import { getRecommendationPage, getTrendingBooksPage, invalidateRecommendationsCache } from '@/services/recommendations';
+import { fetchShelfPage } from '@/services/shelves';
 import { logUserActivity } from '@/services/userActivity';
-import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '../ctx';
 
@@ -41,14 +42,9 @@ interface DynamicPlan {
 
 /* ── Module-level caches ───────────────────────────────────────────── */
 
-const newArrivalsCache = new Map<string, { books: Book[]; ts: number }>();
 const readingListCache = new Map<string, { entries: ReadingEntry[]; ts: number }>();
 const recentlyViewedCache = new Map<string, { books: Book[]; ts: number }>();
 const dynamicPlanCache = new Map<string, { plan: DynamicPlan; ts: number }>();
-const byrShelfCache = new Map<string, { books: Book[]; ts: number }>();
-const mfaShelfCache = new Map<string, { books: Book[]; ts: number }>();
-const picShelfCache = new Map<string, { books: Book[]; ts: number }>();
-const quickReadsCache = new Map<string, { books: Book[]; ts: number }>();
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
 
@@ -177,12 +173,8 @@ export default function HomeScreen() {
       recentlyViewedCache.delete(user.uid);
       invalidateRecommendationsCache(user.uid);
     }
-    newArrivalsCache.clear();
+    clearPagedShelfCache();
     dynamicPlanCache.clear();
-    byrShelfCache.clear();
-    mfaShelfCache.clear();
-    picShelfCache.clear();
-    quickReadsCache.clear();
     hintClaimed.current = false;
     setDynamicPlan(null);
     setRevealedCount(INITIAL_REVEALED);
@@ -336,47 +328,60 @@ export default function HomeScreen() {
   );
 }
 
-/* ── RecommendationSection ─────────────────────────────────────────── */
+/* ── PagedShelfSection ─────────────────────────────────────────────── */
 
-function RecommendationSection({ refreshKey, readingListEntries }: { refreshKey: number; readingListEntries: ReadingEntry[] }) {
-  const { t } = useTranslation();
+type PagedShelfSectionProps = {
+  cacheKey: string | null;
+  errorContext: string;
+  load: (offset: number, limit: number) => Promise<Book[]>;
+  title: string;
+  keyPrefix: string;
+  activityContext: string;
+  readingListEntries: ReadingEntry[];
+  seeAllType?: string;
+};
+
+// One shelf that keeps loading as the user scrolls it; "see all" (when given)
+// is the fallback for browsing the same list as a grid.
+function PagedShelfSection({
+  cacheKey, errorContext, load, title, keyPrefix, activityContext, readingListEntries, seeAllType,
+}: PagedShelfSectionProps) {
   const { user } = useSession();
-  const [recommendations, setRecommendations] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
   const router = useRouter();
+  const { books, loading, loadingMore, loadMore } = usePagedShelf(cacheKey, errorContext, load);
 
-  useEffect(() => {
-    async function fetchRecommendations() {
-      setLoading(true);
-      if (!user?.uid) { setLoading(false); return; }
-      try {
-        const books = await getRecommendationsForUser(user.uid, 50);
-        setRecommendations(books);
-      } catch (e) {
-        void logError(e, 'home/recommendations');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchRecommendations();
-  }, [user?.uid, refreshKey, readingListEntries]);
+  const visible = useMemo(() => {
+    const readSet = new Set(readingListEntries.map(e => e.bookId));
+    return books.filter(b => !readSet.has(b.id));
+  }, [books, readingListEntries]);
 
   if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="small" /></View>;
-  if (recommendations.length === 0) return null;
+  if (visible.length === 0) return null;
+
+  const openSeeAll = () => router.push({ pathname: '/book-list', params: { title, type: seeAllType } });
 
   return (
     <View style={styles.sectionContainer}>
-      <TouchableOpacity style={styles.sectionHeader} activeOpacity={0.7} onPress={() => router.push({ pathname: '/book-list', params: { title: t('homeRecommended'), type: 'recommendations' } })}>
-        <ThemedText style={[styles.sectionLabel, { color: theme.secondary }]}>{t('homeRecommended')}</ThemedText>
-        <SeeAllDots onPress={() => router.push({ pathname: '/book-list', params: { title: t('homeRecommended'), type: 'recommendations' } })} />
-      </TouchableOpacity>
+      {seeAllType ? (
+        <TouchableOpacity style={styles.sectionHeader} activeOpacity={0.7} onPress={openSeeAll}>
+          <ThemedText style={[styles.sectionLabel, { color: theme.secondary }]}>{title}</ThemedText>
+          <SeeAllDots onPress={openSeeAll} />
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.sectionHeader}>
+          <ThemedText style={[styles.sectionLabel, { color: theme.secondary }]} numberOfLines={1}>{title}</ThemedText>
+        </View>
+      )}
       <HorizontalBookShelf
-        books={recommendations}
-        keyPrefix="home-recommendation"
+        books={visible}
+        keyPrefix={keyPrefix}
+        onEndReached={loadMore}
+        loadingMore={loadingMore}
+        snapCenter
         onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_recommendations');
+          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', activityContext);
           router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
         }}
       />
@@ -384,337 +389,124 @@ function RecommendationSection({ refreshKey, readingListEntries }: { refreshKey:
   );
 }
 
-/* ── TrendingSection ───────────────────────────────────────────────── */
+const shortLabel = (text: string, max: number) => (text.length > max ? text.substring(0, max).trimEnd() + '…' : text);
 
-function TrendingSection({ refreshKey, readingListEntries }: { refreshKey: number; readingListEntries: ReadingEntry[] }) {
+/* ── Shelves ───────────────────────────────────────────────────────── */
+
+type ShelfProps = { readingListEntries: ReadingEntry[] };
+type KeyedShelfProps = ShelfProps & { refreshKey: number };
+
+function RecommendationSection({ refreshKey, readingListEntries }: KeyedShelfProps) {
   const { t } = useTranslation();
-  const { user } = useSession();
-  const [trendingBooks, setTrendingBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-  const router = useRouter();
-  const { addScrollListener, claimHint } = useContext(HomeScrollContext);
-  const containerRef = useRef<View>(null);
-  const listRef = useRef<FlatList>(null);
-  const hintFired = useRef(false);
-  const { height: screenHeight } = useWindowDimensions();
-
-  useEffect(() => {
-    if (trendingBooks.length === 0) return;
-
-    let unsubscribe: () => void;
-
-    const checkPosition = () => {
-      if (hintFired.current) { unsubscribe?.(); return; }
-      containerRef.current?.measureInWindow((_x, y) => {
-        if (y > screenHeight * 0.45 && y < screenHeight) {
-          hintFired.current = true;
-          unsubscribe?.();
-          if (!claimHint()) return;
-          setTimeout(() => listRef.current?.scrollToOffset({ offset: 52, animated: true }), 80);
-          setTimeout(() => listRef.current?.scrollToOffset({ offset: 0, animated: true }), 780);
-        }
-      });
-    };
-
-    unsubscribe = addScrollListener(checkPosition);
-    const timer = setTimeout(checkPosition, 200);
-
-    return () => { unsubscribe(); clearTimeout(timer); };
-  }, [trendingBooks.length, addScrollListener, screenHeight]);
-
-  useEffect(() => {
-    async function fetchTrending() {
-      setLoading(true);
-      if (!user?.uid) { setLoading(false); return; }
-      try {
-        const books = await getTrendingBooksByViews(25);
-        setTrendingBooks(books);
-      } catch (e) {
-        void logError(e, 'home/trending');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchTrending();
-  }, [user?.uid, refreshKey]);
-
-  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="small" /></View>;
-
-  const readSet = new Set(readingListEntries.map(e => e.bookId));
-  const filtered = trendingBooks.filter(b => !readSet.has(b.id));
-  if (filtered.length === 0) return null;
-
+  const uid = useSession().user?.uid;
   return (
-    <View style={styles.sectionContainer}>
-      <TouchableOpacity style={styles.sectionHeader} activeOpacity={0.7} onPress={() => router.push({ pathname: '/book-list', params: { title: t('homeTrending'), type: 'trending' } })}>
-        <ThemedText style={[styles.sectionLabel, { color: theme.secondary }]}>{t('homeTrending')}</ThemedText>
-        <SeeAllDots onPress={() => router.push({ pathname: '/book-list', params: { title: t('homeTrending'), type: 'trending' } })} />
-      </TouchableOpacity>
-      <View ref={containerRef}>
-        <FlatList
-          ref={listRef}
-          data={filtered}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          contentContainerStyle={{ paddingHorizontal: 20 }}
-          keyExtractor={(item) => `trending-${item.id}`}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.bookCard}
-              onPress={() => {
-                if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_trending');
-                      router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
-              }}
-            >
-              <Image
-                source={{ uri: item.coverUrl || undefined }}
-                style={[styles.bookCover, { backgroundColor: theme.border }]}
-                contentFit="cover"
-                transition={200}
-              />
-              <ThemedText style={styles.bookTitle} numberOfLines={1}>{item.title}</ThemedText>
-              <ThemedText style={[styles.bookAuthor, { color: theme.secondary }]} numberOfLines={1}>{item.authors?.[0]}</ThemedText>
-            </TouchableOpacity>
-          )}
-        />
-      </View>
-    </View>
+    <PagedShelfSection
+      cacheKey={uid ? `recs-${uid}-${refreshKey}` : null}
+      errorContext="home/recommendations"
+      load={(offset, limit) => getRecommendationPage(uid ?? '', offset, limit)}
+      title={t('homeRecommended')}
+      keyPrefix="home-recommendation"
+      activityContext="home_recommendations"
+      readingListEntries={readingListEntries}
+      seeAllType="recommendations"
+    />
   );
 }
 
-/* ── BecauseYouReadShelf ───────────────────────────────────────────── */
-
-function BecauseYouReadShelf({ seed, readingListEntries }: { seed: BYRSeed; readingListEntries: ReadingEntry[] }) {
+function TrendingSection({ refreshKey, readingListEntries }: KeyedShelfProps) {
   const { t } = useTranslation();
-  const { user } = useSession();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!user?.uid) { setLoading(false); return; }
-    const cacheKey = `byr-${user.uid}-${seed.bookId}`;
-    const cached = byrShelfCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < SECTION_CACHE_TTL) {
-      setBooks(cached.books);
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const { data, error } = await supabase.from('books').select('*').contains('categories', [seed.category]).limit(20);
-        if (error) throw error;
-        const readSet = new Set(readingListEntries.map(e => e.bookId));
-        const result = (data ?? [])
-          .filter((b: any) => !readSet.has(b.id) && b.id !== seed.bookId)
-          .sort((a: any, b: any) => (b.popularityCount || 0) - (a.popularityCount || 0)) as Book[];
-        byrShelfCache.set(cacheKey, { books: result, ts: Date.now() });
-        setBooks(result);
-      } catch (e) { void logError(e, 'home/becauseYouRead'); }
-      finally { setLoading(false); }
-    })();
-  }, [seed.bookId, seed.category, user?.uid]);
-
-  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="small" /></View>;
-  if (books.length === 0) return null;
-
-  const titleLabel = seed.title.length > 22 ? seed.title.substring(0, 22).trimEnd() + '…' : seed.title;
-
+  const uid = useSession().user?.uid;
   return (
-    <View style={styles.sectionContainer}>
-      <View style={styles.sectionHeader}>
-        <ThemedText style={[styles.sectionLabel, { color: theme.secondary }]} numberOfLines={1}>
-          {t('homeBecauseYouRead', { title: titleLabel })}
-        </ThemedText>
-      </View>
-      <HorizontalBookShelf
-        books={books}
-        keyPrefix={`byr-${seed.bookId}`}
-        onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_because_you_read');
-          router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
-        }}
-      />
-    </View>
+    <PagedShelfSection
+      cacheKey={uid ? `trending-${uid}-${refreshKey}` : null}
+      errorContext="home/trending"
+      load={getTrendingBooksPage}
+      title={t('homeTrending')}
+      keyPrefix="trending"
+      activityContext="home_trending"
+      readingListEntries={readingListEntries}
+      seeAllType="trending"
+    />
   );
 }
 
-/* ── MoreFromAuthorShelf ───────────────────────────────────────────── */
-
-function MoreFromAuthorShelf({ seed, readingListEntries }: { seed: MFASeed; readingListEntries: ReadingEntry[] }) {
+function BecauseYouReadShelf({ seed, readingListEntries }: ShelfProps & { seed: BYRSeed }) {
   const { t } = useTranslation();
-  const { user } = useSession();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!user?.uid) { setLoading(false); return; }
-    const cacheKey = `mfa-${user.uid}-${seed.author}`;
-    const cached = mfaShelfCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < SECTION_CACHE_TTL) {
-      setBooks(cached.books);
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const { data, error } = await supabase.from('books').select('*').contains('authors', [seed.author]).limit(20);
-        if (error) throw error;
-        const readSet = new Set(readingListEntries.map(e => e.bookId));
-        const result = (data ?? [])
-          .filter((b: any) => !readSet.has(b.id))
-          .sort((a: any, b: any) => (b.popularityCount || 0) - (a.popularityCount || 0)) as Book[];
-        mfaShelfCache.set(cacheKey, { books: result, ts: Date.now() });
-        setBooks(result);
-      } catch (e) { void logError(e, 'home/moreFromAuthor'); }
-      finally { setLoading(false); }
-    })();
-  }, [seed.author, user?.uid]);
-
-  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="small" /></View>;
-  if (books.length === 0) return null;
-
-  const authorLabel = seed.author.length > 25 ? seed.author.substring(0, 25).trimEnd() + '…' : seed.author;
-
+  const uid = useSession().user?.uid;
   return (
-    <View style={styles.sectionContainer}>
-      <View style={styles.sectionHeader}>
-        <ThemedText style={[styles.sectionLabel, { color: theme.secondary }]} numberOfLines={1}>
-          {t('homeMoreFromAuthor', { author: authorLabel })}
-        </ThemedText>
-      </View>
-      <HorizontalBookShelf
-        books={books}
-        keyPrefix={`mfa-${seed.author}`}
-        onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_more_from_author');
-          router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
-        }}
-      />
-    </View>
+    <PagedShelfSection
+      cacheKey={uid ? `byr-${uid}-${seed.bookId}` : null}
+      errorContext="home/becauseYouRead"
+      load={(offset, limit) => fetchShelfPage('category', seed.category, offset, limit, seed.bookId)}
+      title={t('homeBecauseYouRead', { title: shortLabel(seed.title, 22) })}
+      keyPrefix={`byr-${seed.bookId}`}
+      activityContext="home_because_you_read"
+      readingListEntries={readingListEntries}
+    />
   );
 }
 
-/* ── PopularInCategoryShelf ────────────────────────────────────────── */
-
-function PopularInCategoryShelf({ category, readingListEntries }: { category: string; readingListEntries: ReadingEntry[] }) {
+function MoreFromAuthorShelf({ seed, readingListEntries }: ShelfProps & { seed: MFASeed }) {
   const { t } = useTranslation();
-  const { user } = useSession();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!user?.uid) { setLoading(false); return; }
-    const cacheKey = `pic-${user.uid}-${category}`;
-    const cached = picShelfCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < SECTION_CACHE_TTL) {
-      setBooks(cached.books);
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const { data, error } = await supabase.from('books').select('*').contains('categories', [category]).limit(20);
-        if (error) throw error;
-        const readSet = new Set(readingListEntries.map(e => e.bookId));
-        const result = (data ?? [])
-          .filter((b: any) => !readSet.has(b.id))
-          .sort((a: any, b: any) => (b.popularityCount || 0) - (a.popularityCount || 0)) as Book[];
-        picShelfCache.set(cacheKey, { books: result, ts: Date.now() });
-        setBooks(result);
-      } catch (e) { void logError(e, 'home/popularCategory'); }
-      finally { setLoading(false); }
-    })();
-  }, [category, user?.uid]);
-
-  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="small" /></View>;
-  if (books.length === 0) return null;
-
-  const catLabel = category.length > 25 ? category.substring(0, 25).trimEnd() + '…' : category;
-
+  const uid = useSession().user?.uid;
   return (
-    <View style={styles.sectionContainer}>
-      <View style={styles.sectionHeader}>
-        <ThemedText style={[styles.sectionLabel, { color: theme.secondary }]} numberOfLines={1}>
-          {t('homePopularIn', { category: catLabel })}
-        </ThemedText>
-      </View>
-      <HorizontalBookShelf
-        books={books}
-        keyPrefix={`pic-${category}`}
-        onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_popular_category');
-          router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
-        }}
-      />
-    </View>
+    <PagedShelfSection
+      cacheKey={uid ? `mfa-${uid}-${seed.author}` : null}
+      errorContext="home/moreFromAuthor"
+      load={(offset, limit) => fetchShelfPage('author', seed.author, offset, limit)}
+      title={t('homeMoreFromAuthor', { author: shortLabel(seed.author, 25) })}
+      keyPrefix={`mfa-${seed.author}`}
+      activityContext="home_more_from_author"
+      readingListEntries={readingListEntries}
+    />
   );
 }
 
-/* ── QuickReadsSection ─────────────────────────────────────────────── */
-
-function QuickReadsSection({ refreshKey, readingListEntries }: { refreshKey: number; readingListEntries: ReadingEntry[] }) {
+function PopularInCategoryShelf({ category, readingListEntries }: ShelfProps & { category: string }) {
   const { t } = useTranslation();
-  const { user } = useSession();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!user?.uid) { setLoading(false); return; }
-    const cacheKey = 'quick-reads';
-    const cached = quickReadsCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < SECTION_CACHE_TTL) {
-      setBooks(cached.books);
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      try {
-        const { data, error } = await supabase.from('books').select('*').gte('pageCount', 60).lte('pageCount', 120).limit(25);
-        if (error) throw error;
-        const result = (data ?? [])
-          .sort((a: any, b: any) => (b.popularityCount || 0) - (a.popularityCount || 0)) as Book[];
-        quickReadsCache.set(cacheKey, { books: result, ts: Date.now() });
-        setBooks(result);
-      } catch (e) { void logError(e, 'home/quickReads'); }
-      finally { setLoading(false); }
-    })();
-  }, [user?.uid, refreshKey]);
-
-  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="small" /></View>;
-
-  const readSet = new Set(readingListEntries.map(e => e.bookId));
-  const filtered = books.filter(b => !readSet.has(b.id));
-  if (filtered.length === 0) return null;
-
+  const uid = useSession().user?.uid;
   return (
-    <View style={styles.sectionContainer}>
-      <View style={styles.sectionHeader}>
-        <ThemedText style={[styles.sectionLabel, { color: theme.secondary }]}>{t('homeQuickReads')}</ThemedText>
-      </View>
-      <HorizontalBookShelf
-        books={filtered}
-        keyPrefix="home-quick-reads"
-        onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_quick_reads');
-          router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
-        }}
-      />
-    </View>
+    <PagedShelfSection
+      cacheKey={uid ? `pic-${uid}-${category}` : null}
+      errorContext="home/popularCategory"
+      load={(offset, limit) => fetchShelfPage('category', category, offset, limit)}
+      title={t('homePopularIn', { category: shortLabel(category, 25) })}
+      keyPrefix={`pic-${category}`}
+      activityContext="home_popular_category"
+      readingListEntries={readingListEntries}
+    />
+  );
+}
+
+function QuickReadsSection({ refreshKey, readingListEntries }: KeyedShelfProps) {
+  const { t } = useTranslation();
+  const uid = useSession().user?.uid;
+  return (
+    <PagedShelfSection
+      cacheKey={uid ? `quick-${uid}-${refreshKey}` : null}
+      errorContext="home/quickReads"
+      load={(offset, limit) => fetchShelfPage('quick', null, offset, limit)}
+      title={t('homeQuickReads')}
+      keyPrefix="home-quick-reads"
+      activityContext="home_quick_reads"
+      readingListEntries={readingListEntries}
+    />
+  );
+}
+
+function NewArrivalsSection({ refreshKey, readingListEntries }: KeyedShelfProps) {
+  const { t } = useTranslation();
+  const uid = useSession().user?.uid;
+  return (
+    <PagedShelfSection
+      cacheKey={uid ? `new-${uid}-${refreshKey}` : null}
+      errorContext="home/newArrivals"
+      load={(offset, limit) => fetchShelfPage('new', null, offset, limit)}
+      title={t('homeNewArrivals')}
+      keyPrefix="home-new-arrivals"
+      activityContext="home_new_arrivals"
+      readingListEntries={readingListEntries}
+    />
   );
 }
 
@@ -796,65 +588,6 @@ function RecentlyViewedSection({ refreshKey, readingListEntries }: { refreshKey:
   );
 }
 
-/* ── NewArrivalsSection ────────────────────────────────────────────── */
-
-function NewArrivalsSection({ refreshKey, readingListEntries }: { refreshKey: number; readingListEntries: ReadingEntry[] }) {
-  const { t } = useTranslation();
-  const { user } = useSession();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-  const router = useRouter();
-
-  useEffect(() => {
-    async function fetchNewArrivals() {
-      setLoading(true);
-      if (!user?.uid) { setLoading(false); return; }
-      try {
-        const cacheKey = 'new-arrivals';
-        const cached = newArrivalsCache.get(cacheKey);
-        if (cached && Date.now() - cached.ts < SECTION_CACHE_TTL) {
-          setBooks(cached.books);
-          setLoading(false);
-          return;
-        }
-        const { data: newData } = await supabase.from('books').select('*').order('createdAt', { ascending: false }).limit(40);
-        const results: Book[] = (newData ?? []) as Book[];
-        newArrivalsCache.set(cacheKey, { books: results, ts: Date.now() });
-        setBooks(results);
-      } catch (e) {
-        void logError(e, 'home/newArrivals');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchNewArrivals();
-  }, [user?.uid, refreshKey]);
-
-  if (loading) return <View style={styles.loadingContainer}><ActivityIndicator size="small" /></View>;
-
-  const readSet = new Set(readingListEntries.map(e => e.bookId));
-  const filtered = books.filter(b => !readSet.has(b.id));
-  if (filtered.length === 0) return null;
-
-  return (
-    <View style={styles.sectionContainer}>
-      <View style={styles.sectionHeader}>
-        <ThemedText style={[styles.sectionLabel, { color: theme.secondary }]}>{t('homeNewArrivals')}</ThemedText>
-      </View>
-      <HorizontalBookShelf
-        books={filtered}
-        keyPrefix="home-new-arrivals"
-        onPressBook={(item) => {
-          if (user?.uid) logUserActivity(user.uid, item.id, 'view_details', 'home_new_arrivals');
-          router.push({ pathname: '/book-details', params: { book: JSON.stringify(item) } });
-        }}
-      />
-    </View>
-  );
-}
-
 /* ── Styles ────────────────────────────────────────────────────────── */
 
 const styles = StyleSheet.create({
@@ -913,24 +646,4 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     alignItems: 'center',
   },
-  bookCard: {
-    width: 140,
-    marginRight: 16,
-  },
-  bookCover: {
-    width: 140,
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-  },
-  bookTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  bookAuthor: { fontSize: 12 },
 });

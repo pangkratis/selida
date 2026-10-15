@@ -357,6 +357,14 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   empty pre-launch — don't design scoring around pre-launch data.
 - Unused leftovers: `books.searchTags` (word fragments, 16,058 books) is no longer scored.
 
+### 7e. Home category shelves seed on junk categories (noted 2026-10-15, not fixed)
+- `computeDynamicPlan` takes `categories[0]` of a few reading-list books as shelf seeds. 24,239
+  books are "Γενικά βιβλία", so users get "Popular in Γενικά βιβλία" / "Because you read X" shelves
+  of arbitrary general books. Quick win: skip that category as a seed. Better: seed on genres —
+  but a reader of only literature would then get one "Because you read" shelf instead of up to
+  three (genres are coarser than categories there), so decide the trade-off first.
+- Trending ends after ~112 books (all of `bookStats`); it only gets deep once there is real usage.
+
 ### 7b. Ingestion silently dropped ~22% of books with an empty Writer field — FIXED (2026-09-21)
 - User-reported as "ingestion dates don't change, we don't get to next month/year" — investigation
   found the cursor-advancement logic itself was actually correct (verified live: fetched a real

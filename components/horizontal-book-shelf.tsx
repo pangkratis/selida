@@ -5,13 +5,21 @@ import { HomeScrollContext } from '@/hooks/home-scroll-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Image } from 'expo-image';
 import React, { useContext, useEffect, useRef, useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+
+const CARD_WIDTH = 140;
+const CARD_GAP = 16;
+const SNAP_STEP = CARD_WIDTH + CARD_GAP;
 
 type HorizontalBookShelfProps = {
   books: Book[];
   onPressBook: (book: Book) => void;
   keyPrefix?: string;
   contentPaddingHorizontal?: number;
+  onEndReached?: () => void;
+  loadingMore?: boolean;
+  // A small swipe moves exactly one book; each snap lines a book up with the left margin.
+  snapCenter?: boolean;
 };
 
 export default function HorizontalBookShelf({
@@ -19,6 +27,9 @@ export default function HorizontalBookShelf({
   onPressBook,
   keyPrefix = 'book',
   contentPaddingHorizontal = 20,
+  onEndReached,
+  loadingMore = false,
+  snapCenter = false,
 }: HorizontalBookShelfProps) {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
@@ -28,7 +39,6 @@ export default function HorizontalBookShelf({
   const hintFired = useRef(false);
   const { height: screenHeight, width } = useWindowDimensions();
   const [previewCover, setPreviewCover] = useState<string | null>(null);
-
   useEffect(() => {
     if (books.length === 0 || !active) return;
 
@@ -61,6 +71,14 @@ export default function HorizontalBookShelf({
         horizontal
         showsHorizontalScrollIndicator={false}
         decelerationRate="fast"
+        snapToInterval={snapCenter ? SNAP_STEP : undefined}
+        snapToAlignment="start"
+        disableIntervalMomentum={snapCenter}
+        onEndReached={onEndReached}
+        onEndReachedThreshold={2}
+        initialNumToRender={5}
+        maxToRenderPerBatch={6}
+        windowSize={7}
         keyExtractor={(item) => `${keyPrefix}-${item.id}`}
         contentContainerStyle={{ paddingHorizontal: contentPaddingHorizontal }}
         renderItem={({ item }) => (
@@ -86,6 +104,11 @@ export default function HorizontalBookShelf({
           </TouchableOpacity>
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListFooterComponent={loadingMore ? (
+          <View style={styles.footer}>
+            <ActivityIndicator size="small" color={theme.secondary} />
+          </View>
+        ) : null}
       />
 
       <Modal visible={!!previewCover} transparent statusBarTranslucent animationType="fade" onRequestClose={() => setPreviewCover(null)}>
@@ -106,10 +129,10 @@ export default function HorizontalBookShelf({
 
 const styles = StyleSheet.create({
   bookCard: {
-    width: 140,
+    width: CARD_WIDTH,
   },
   bookCover: {
-    width: 140,
+    width: CARD_WIDTH,
     height: 200,
     borderRadius: 12,
     marginBottom: 12,
@@ -128,7 +151,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   separator: {
-    width: 16,
+    width: CARD_GAP,
+  },
+  footer: {
+    width: 56,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

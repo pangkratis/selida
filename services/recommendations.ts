@@ -25,8 +25,11 @@ const updateSeenList = (userId: string, books: ScoredBook[]) => {
     seenRecommendationsMap.set(userId, updated);
 };
 
+const orderedRecsCache = new Map<string, { data: ScoredBook[]; ts: number }>();
+
 export const invalidateRecommendationsCache = (userId: string) => {
     recommendationsCache.delete(userId);
+    orderedRecsCache.delete(userId);
 };
 
 const fetchBooksByIds = async (bookIds: string[]): Promise<Map<string, Book>> => {
@@ -84,22 +87,13 @@ const mapRpcRow = (row: any): ScoredBook => {
 
 // The taste profile (reading list + onboarding picks) is built server-side from
 // the caller's session; userId here only keys the local cache.
-export const getRecommendationsForUser = async (
-    userId: string,
-    limitCount: number = 10,
-): Promise<ScoredBook[]> => {
+const loadPool = async (userId: string): Promise<ScoredBook[]> => {
     const cached = recommendationsCache.get(userId);
-    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
-        const results = pickFromPool(cached.data, limitCount);
-        updateSeenList(userId, results);
-        return results;
-    }
+    if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.data;
 
-    const storePool = (pool: ScoredBook[]): ScoredBook[] => {
+    const store = (pool: ScoredBook[]) => {
         recommendationsCache.set(userId, { data: pool, ts: Date.now() });
-        const results = pickFromPool(pool, limitCount);
-        updateSeenList(userId, results);
-        return results;
+        return pool;
     };
 
     try {
@@ -110,15 +104,43 @@ export const getRecommendationsForUser = async (
 
         if (error) {
             void logError(error, 'recommendations/rpc');
-            return storePool(await getTrendingBooks(MAX_POOL_SIZE));
+            return store(await getTrendingBooks(MAX_POOL_SIZE));
         }
 
         const scored = ((data ?? []) as any[]).map(mapRpcRow);
-        return storePool(scored.length > 0 ? scored : await getTrendingBooks(MAX_POOL_SIZE));
+        return store(scored.length > 0 ? scored : await getTrendingBooks(MAX_POOL_SIZE));
     } catch (error) {
         void logError(error, 'recommendations/getForUser');
         return [];
     }
+};
+
+export const getRecommendationsForUser = async (
+    userId: string,
+    limitCount: number = 10,
+): Promise<ScoredBook[]> => {
+    const results = pickFromPool(await loadPool(userId), limitCount);
+    updateSeenList(userId, results);
+    return results;
+};
+
+// Paging needs one fixed order, so the jitter and author cap are applied once
+// per pool and the pages are slices of that list.
+export const getRecommendationPage = async (
+    userId: string,
+    offset: number,
+    limit: number,
+): Promise<ScoredBook[]> => {
+    let entry = orderedRecsCache.get(userId);
+    if (!entry || Date.now() - entry.ts >= CACHE_TTL_MS) {
+        const ordered = pickFromPool(await loadPool(userId), MAX_POOL_SIZE);
+        if (ordered.length === 0) return [];
+        entry = { data: ordered, ts: Date.now() };
+        orderedRecsCache.set(userId, entry);
+    }
+    const page = entry.data.slice(offset, offset + limit);
+    if (offset === 0) updateSeenList(userId, page);
+    return page;
 };
 
 const getTrendingBooks = async (limitCount: number, source?: BookSource): Promise<ScoredBook[]> => {
@@ -195,6 +217,30 @@ export const getTrendingBooksByViews = async (limitCount: number = 10, source?: 
         return trendingBooks;
     } catch (e) {
         void logError(e, 'recommendations/trendingByViews');
+        return [];
+    }
+};
+
+export const getTrendingBooksPage = async (offset: number, limit: number): Promise<ScoredBook[]> => {
+    try {
+        const { data: statsData } = await supabase
+            .from('bookStats')
+            .select('bookId, views')
+            .order('views', { ascending: false })
+            .order('bookId', { ascending: true })
+            .range(offset, offset + limit - 1);
+        if (!statsData || statsData.length === 0) return [];
+
+        const ids = statsData.map((d: any) => d.bookId as string);
+        const booksById = await fetchBooksByIds(ids);
+        return statsData
+            .map((d: any) => {
+                const book = booksById.get(d.bookId);
+                return book ? ({ ...book, score: d.views || 0, matchReason: `${d.views || 0} views` } as ScoredBook) : null;
+            })
+            .filter((b): b is ScoredBook => !!b);
+    } catch (e) {
+        void logError(e, 'recommendations/trendingPage');
         return [];
     }
 };
