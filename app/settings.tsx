@@ -460,6 +460,12 @@ export default function SettingsScreen() {
                             iconColor={AccentPalette[1]}
                             label={t('settingsCatalogIngestion')}
                             onPress={() => router.push('/catalog-ingestion')}
+                        />
+                        <Row
+                            icon="albums-outline"
+                            iconColor={AccentPalette[3]}
+                            label={t('settingsBookTriage')}
+                            onPress={() => router.push('/book-triage')}
                             last
                         />
                     </Section>

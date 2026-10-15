@@ -91,7 +91,7 @@ function Root() {
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
     // Modal/stack screens that can legitimately sit on top of any page — don't redirect while they are focused.
-    const inModal = (['book-details', 'book-list', 'books-grid', 'settings', 'catalog-ingestion'] as string[]).includes(segments[0] as string);
+    const inModal = (['book-details', 'book-list', 'books-grid', 'settings', 'catalog-ingestion', 'book-triage', 'book-triage-list'] as string[]).includes(segments[0] as string);
 
     if (!session) {
       if (__DEV__) console.log('[Layout] No session → redirecting to login');
@@ -171,6 +171,24 @@ function Root() {
       />
       <Stack.Screen
         name="catalog-ingestion"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
+        }}
+      />
+      <Stack.Screen
+        name="book-triage"
+        options={{
+          presentation: 'card',
+          headerShown: false,
+          gestureEnabled: true,
+          fullScreenGestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
+        name="book-triage-list"
         options={{
           presentation: 'card',
           headerShown: false,

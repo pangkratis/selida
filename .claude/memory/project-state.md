@@ -486,6 +486,40 @@ hex). Uses the app's own theme tokens throughout.
   exposed in git history and past local builds regardless of this fix. Not the app's call to make;
   flagged to the user.
 
+### Book triage — admin swipe deck that orders the subcategory sync (added 2026-10-17)
+- Screen `app/book-triage.tsx` (Settings → Admin → "Book triage"; route registered in
+  `app/_layout.tsx` with `fullScreenGestureEnabled: false` so the back swipe can't steal card
+  swipes). Shows unsynced books (`syncedSub=false`, has `biblionetId`) one card at a time.
+  Swipe right / ♥ = `priority` (sync first), swipe left / ✕ = `skip` ("not yet"), 🔖 = `review`
+  (decide later), plus Undo (last 20). Vertical drag scrolls the card into a details view
+  (description, categories, ISBN) — the pan uses `activeOffsetX` + `failOffsetY` so it doesn't
+  conflict. Counters: books without subcategories, in sync list, to review.
+- Data: `book_triage` (one row per book: decision, decided_by, decided_at), admin-only RLS.
+  RPCs (all check `fn_require_admin()`): `get_triage_deck(limit, exclude_ids)` (by popularity then
+  newest added, index `books_subsync_recent_idx`), `get_triage_counts()`, `get_subsync_batch(limit)`.
+  Trigger `trg_triage_clear_on_sync` deletes priority/skip rows when `syncedSub` turns true; review
+  rows stay. Service: `services/book-triage.ts`. SQL: `sql/migration_26_book_triage.sql`.
+- `syncSubcategories()` takes its batch from `get_subsync_batch`: priority list (oldest first),
+  then untriaged books by popularity — **skip and review books are never synced automatically**
+  (migration_27, user's call 2026-10-17: "not yet" means don't fetch until moved). Result reports
+  `fromList`, shown in the admin ingestion screen. The deck never shows a triaged book again.
+- Cards show genre chips (from `book_genres`, primary first, localized) and category chips, plus a
+  details table (genres, category, publisher, series, edition, language, ISBN). Genres are
+  attached client-side in `services/book-triage.ts` (`withGenres`).
+- **Lists screen** `app/book-triage-list.tsx?decision=skip|review` (opened from the "not yet" /
+  "to review" counter chips): paged list (`get_triage_list`, newest decision first) with genre,
+  category and a description excerpt per row; tap to select, "Select all", then "Add N to sync list"
+  (`moveToSyncList` upserts `priority`). Triage screen refetches counters on focus.
+- Verified on the emulator 2026-10-17 (swipe, buttons, undo, in-card scroll, DB rows, batch order,
+  trigger in a rolled-back transaction); test decisions were deleted afterwards.
+- Known: the unsynced counter takes 1–3.5 s (index-only scan with many heap fetches until
+  autovacuum catches up); it loads after the cards. Review books can be moved to the sync list
+  from the same list screen; no other review action exists yet. Admin/global by design —
+  releasing it to normal users would need per-user data.
+- Data observation: some catalogue books carry wrong Biblionet categories (e.g. Ocean Vuong's
+  novel "Στη Γη είμαστε πρόσκαιρα υπέροχοι" is categorised "Πληροφορική & υπολογιστές", so its
+  genre is Technology) — the triage cards make this visible.
+
 ### syncSubcategories() batch query was timing out (fixed 2026-10-09)
 `books` grew to ~187,500 rows (10x its size when `syncSubcategories()`'s `ORDER BY
 "popularityCount" DESC` ordering was added) with no index backing

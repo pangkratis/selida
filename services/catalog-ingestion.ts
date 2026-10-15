@@ -303,6 +303,7 @@ export async function runMassIngestion(requestCount: number = 800): Promise<Mass
 
 export interface SubSyncResult {
     synced: number;
+    fromList?: number;
     remaining: number;
     error?: string;
     stoppedEarly?: boolean;
@@ -339,22 +340,20 @@ export async function syncSubcategories(): Promise<SubSyncResult | null> {
     if (!__DEV__) return null;
 
     try {
+        // Books on the triage sync list come first, then untriaged books by
+        // popularity, then ones marked "not yet" or "review" (get_subsync_batch).
         const { data: books, error: fetchError } = await supabase
-            .from('books')
-            .select('id, biblionetId, title')
-            .eq('syncedSub', false)
-            .not('biblionetId', 'is', null)
-            .order('popularityCount', { ascending: false })
-            .limit(SUB_BATCH);
+            .rpc('get_subsync_batch', { p_limit: SUB_BATCH });
 
         if (fetchError) throw fetchError;
-        if (!books || books.length === 0) return { synced: 0, remaining: 0 };
+        if (!books || books.length === 0) return { synced: 0, fromList: 0, remaining: 0 };
 
         let synced = 0;
+        let fromList = 0;
         let consecutiveFailures = 0;
         let stoppedEarly = false;
 
-        for (const book of books) {
+        for (const book of books as { id: string; biblionetId: string; title: string; from_list: boolean }[]) {
             try {
                 const { data, error: proxyError } = await invokeProxyWithRetry({
                     endpoint: 'get_title_subject',
@@ -390,6 +389,7 @@ export async function syncSubcategories(): Promise<SubSyncResult | null> {
                 } else {
                     console.log(`[SubSync] "${book.title}" → ${subcategories.length} subjects`);
                     synced++;
+                    if (book.from_list) fromList++;
                 }
             } catch (err) {
                 console.error(`[SubSync] Error for biblionetId ${book.biblionetId}:`, err);
@@ -407,7 +407,7 @@ export async function syncSubcategories(): Promise<SubSyncResult | null> {
             .select('*', { count: 'exact', head: true })
             .eq('syncedSub', false);
 
-        return { synced, remaining: count ?? 0, stoppedEarly };
+        return { synced, fromList, remaining: count ?? 0, stoppedEarly };
     } catch (err) {
         console.error('[SubSync] Error:', err);
         return { synced: 0, remaining: 0, error: String(err) };
@@ -444,10 +444,11 @@ export async function syncContributors(): Promise<ContributorSyncResult | null> 
         if (!books || books.length === 0) return { synced: 0, remaining: 0 };
 
         let synced = 0;
+        let fromList = 0;
         let consecutiveFailures = 0;
         let stoppedEarly = false;
 
-        for (const book of books) {
+        for (const book of books as { id: string; biblionetId: string; title: string; from_list: boolean }[]) {
             try {
                 const { data, error: proxyError } = await supabase.functions.invoke('biblionet-proxy', {
                     body: { endpoint: 'get_contributors', params: { title: String(book.biblionetId) } },
