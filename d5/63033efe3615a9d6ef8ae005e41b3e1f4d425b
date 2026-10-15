@@ -1,0 +1,28 @@
+services/shelves.ts
+  s_d6d65f87308408::t_79f1e1a43f8c1b 4
+sql/migration_25_hide_saved_editions.sql
+  s_d6d65f87308408::t_768319ef638658 1-57,59-415
+  s_d6d65f87308408::t_637d5861b76fe3 58
+.claude/memory/issues-opportunities.md
+  s_d6d65f87308408::t_1177ab9e405b73 367-374
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_1177ab9e405b73 14,49-54
+app/(tabs)/index.tsx
+  s_d6d65f87308408::t_79f1e1a43f8c1b 11,455
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "d563033efe3615a9d6ef8ae005e41b3e1f4d425b",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
