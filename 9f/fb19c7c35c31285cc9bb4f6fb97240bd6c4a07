@@ -1,0 +1,48 @@
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_0f409fa1e0dbd4 489-501,513-515,522
+  s_d6d65f87308408::t_e909b986b3f013 502-512,516-521
+locales/el.ts
+  s_d6d65f87308408::t_57b4763940e0cd 166-180
+  s_d6d65f87308408::t_5dd1b6793cb3cd 155-165,181-183
+sql/migration_26_book_triage.sql
+  s_d6d65f87308408::t_644264df7ffeb6 1-174
+app/book-triage-list.tsx
+  s_d6d65f87308408::t_f7ff3abfed8b27 1-237
+sql/migration_27_triage_lists.sql
+  s_d6d65f87308408::t_e1a69d20b6a981 1-73
+services/book-triage.ts
+  s_d6d65f87308408::t_57b4763940e0cd 14-23,25-49,51,56-76
+  s_d6d65f87308408::t_5dd1b6793cb3cd 1-13,24,50,52-55,77-103
+services/catalog-ingestion.ts
+  s_d6d65f87308408::t_61ec2e94122b1c 306,343-344,346,349,352,356,392,410,447,451
+app/catalog-ingestion.tsx
+  s_d6d65f87308408::t_61ec2e94122b1c 550
+app/_layout.tsx
+  s_d6d65f87308408::t_5dd1b6793cb3cd 179-187
+  s_d6d65f87308408::t_57b4763940e0cd 94,188-196
+app/settings.tsx
+  s_d6d65f87308408::t_5dd1b6793cb3cd 463-468
+locales/en.ts
+  s_d6d65f87308408::t_57b4763940e0cd 166-180
+  s_d6d65f87308408::t_5dd1b6793cb3cd 155-165,181-183
+app/book-triage.tsx
+  s_d6d65f87308408::t_41d5ff15815adb 7,19,32,46,133-134,137-138,144-152,172-188,212-219,236,248,267-271,274,280,343-346,348-356,359-360,436,463-466
+  s_d6d65f87308408::t_2a21c255870e64 1-6,8-18,20-31,33-45,47-132,135-136,139-143,153-171,189-211,220-235,237-247,249-266,272-273,275-279,281-342,347,357-358,361-371,373-382,384-435,439-450,454-462,467-483
+  s_d6d65f87308408::t_142511769dd8ad 372,383,437-438,451-453
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "9ffb19c7c35c31285cc9bb4f6fb97240bd6c4a07",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
