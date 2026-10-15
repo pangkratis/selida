@@ -314,6 +314,27 @@ export interface SubSyncResult {
 // rest of SUB_BATCH on doomed requests.
 const MAX_CONSECUTIVE_FAILURES = 5;
 
+// A single failed request is usually a brief hiccup, so each book gets a few
+// attempts before it counts toward MAX_CONSECUTIVE_FAILURES.
+const PROXY_ATTEMPTS = 3;
+const PROXY_RETRY_DELAY_MS = 3000;
+
+async function describeProxyError(error: unknown): Promise<string> {
+    const res = (error as { context?: Response }).context;
+    if (!res || typeof res.text !== 'function') return String(error);
+    const body = (await res.text().catch(() => '')).slice(0, 200);
+    return `HTTP ${res.status} ${body}`;
+}
+
+async function invokeProxyWithRetry(body: { endpoint: string; params: Record<string, string> }) {
+    let result = await supabase.functions.invoke('biblionet-proxy', { body });
+    for (let attempt = 1; attempt < PROXY_ATTEMPTS && result.error; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, PROXY_RETRY_DELAY_MS * attempt));
+        result = await supabase.functions.invoke('biblionet-proxy', { body });
+    }
+    return result;
+}
+
 export async function syncSubcategories(): Promise<SubSyncResult | null> {
     if (!__DEV__) return null;
 
@@ -335,12 +356,13 @@ export async function syncSubcategories(): Promise<SubSyncResult | null> {
 
         for (const book of books) {
             try {
-                const { data, error: proxyError } = await supabase.functions.invoke('biblionet-proxy', {
-                    body: { endpoint: 'get_title_subject', params: { title: String(book.biblionetId) } },
+                const { data, error: proxyError } = await invokeProxyWithRetry({
+                    endpoint: 'get_title_subject',
+                    params: { title: String(book.biblionetId) },
                 });
 
                 if (proxyError) {
-                    console.warn(`[SubSync] proxy error for biblionetId ${book.biblionetId}`, proxyError);
+                    console.warn(`[SubSync] biblionetId ${book.biblionetId} failed after ${PROXY_ATTEMPTS} attempts: ${await describeProxyError(proxyError)}`);
                     consecutiveFailures++;
                     if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
                         console.warn(`[SubSync] ${MAX_CONSECUTIVE_FAILURES} consecutive failures — stopping early, likely hit today's rate limit`);
