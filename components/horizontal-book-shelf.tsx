@@ -4,12 +4,38 @@ import { Book } from '@/constants/types';
 import { HomeScrollContext } from '@/hooks/home-scroll-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Image } from 'expo-image';
-import React, { useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 
 const CARD_WIDTH = 140;
 const CARD_GAP = 16;
 const SNAP_STEP = CARD_WIDTH + CARD_GAP;
+// A drag this long (dp) counts as "go to the next book"; a shorter but quicker
+// flick does too.
+const SWIPE_MIN_DISTANCE = 24;
+const SWIPE_FLICK_MIN_DISTANCE = 8;
+const SWIPE_MIN_VELOCITY = 0.3;
+
+// Scroll offsets the shelf rests at when snapping: the first book sits at the
+// left margin, every later book is centred on the screen (the margin is part
+// of the maths, so the centring is exact). Where centring would need a negative
+// offset (wide screens) those books share the first resting place.
+const buildSnapOffsets = (count: number, left: number, viewport: number): number[] => {
+  const offsets = [0];
+  for (let i = 1; i < count; i++) {
+    const centred = left + SNAP_STEP * i + CARD_WIDTH / 2 - viewport / 2;
+    if (centred > offsets[offsets.length - 1] + 1) offsets.push(centred);
+  }
+  return offsets;
+};
+
+const nearestIndex = (offsets: number[], x: number): number => {
+  let best = 0;
+  for (let i = 1; i < offsets.length; i++) {
+    if (Math.abs(offsets[i] - x) < Math.abs(offsets[best] - x)) best = i;
+  }
+  return best;
+};
 
 type HorizontalBookShelfProps = {
   books: Book[];
@@ -18,7 +44,8 @@ type HorizontalBookShelfProps = {
   contentPaddingHorizontal?: number;
   onEndReached?: () => void;
   loadingMore?: boolean;
-  // A small swipe moves exactly one book; each snap lines a book up with the left margin.
+  // Every swipe, short or long, moves exactly one book to the centre (the first
+  // book rests at the left margin). Full-width shelves only.
   snapCenter?: boolean;
 };
 
@@ -39,6 +66,34 @@ export default function HorizontalBookShelf({
   const hintFired = useRef(false);
   const { height: screenHeight, width } = useWindowDimensions();
   const [previewCover, setPreviewCover] = useState<string | null>(null);
+
+  // One swipe = one book. The finger drags the shelf as usual; on release the
+  // shelf always eases to the resting place next to where the drag started (or
+  // back to it for a very short drag), so short, medium and long swipes all end
+  // the same way. Native momentum is switched off so nothing competes with it.
+  const snapOffsets = useMemo(
+    () => (snapCenter ? buildSnapOffsets(books.length, contentPaddingHorizontal, width) : []),
+    [snapCenter, books.length, contentPaddingHorizontal, width],
+  );
+  const dragStartIndex = useRef(0);
+  const handleDragStart = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    dragStartIndex.current = nearestIndex(snapOffsets, e.nativeEvent.contentOffset.x);
+  };
+  const handleDragEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!snapCenter || snapOffsets.length === 0) return;
+    const start = Math.min(dragStartIndex.current, snapOffsets.length - 1);
+    const dragged = e.nativeEvent.contentOffset.x - snapOffsets[start];
+    // Android reports the release velocity of the finger, iOS that of the
+    // content, so the sign is flipped on Android.
+    const velocity = (Platform.OS === 'android' ? -1 : 1) * (e.nativeEvent.velocity?.x ?? 0);
+    let direction = 0;
+    if (Math.abs(dragged) > SWIPE_MIN_DISTANCE) direction = Math.sign(dragged);
+    else if (Math.abs(dragged) > SWIPE_FLICK_MIN_DISTANCE && Math.abs(velocity) > SWIPE_MIN_VELOCITY) direction = Math.sign(velocity);
+    const target = Math.max(0, Math.min(snapOffsets.length - 1, start + direction));
+    listRef.current?.scrollToOffset({ offset: snapOffsets[target], animated: true });
+  };
+  const rightPadding = snapCenter ? Math.max(contentPaddingHorizontal, (width - CARD_WIDTH) / 2) : contentPaddingHorizontal;
+
   useEffect(() => {
     if (books.length === 0 || !active) return;
 
@@ -70,17 +125,16 @@ export default function HorizontalBookShelf({
         data={books}
         horizontal
         showsHorizontalScrollIndicator={false}
-        decelerationRate="fast"
-        snapToInterval={snapCenter ? SNAP_STEP : undefined}
-        snapToAlignment="start"
-        disableIntervalMomentum={snapCenter}
+        decelerationRate={snapCenter ? 0 : 'fast'}
+        onScrollBeginDrag={snapCenter ? handleDragStart : undefined}
+        onScrollEndDrag={snapCenter ? handleDragEnd : undefined}
         onEndReached={onEndReached}
         onEndReachedThreshold={2}
         initialNumToRender={5}
         maxToRenderPerBatch={6}
         windowSize={7}
         keyExtractor={(item) => `${keyPrefix}-${item.id}`}
-        contentContainerStyle={{ paddingHorizontal: contentPaddingHorizontal }}
+        contentContainerStyle={{ paddingLeft: contentPaddingHorizontal, paddingRight: rightPadding }}
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.bookCard}
