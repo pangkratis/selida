@@ -1,7 +1,9 @@
+import { logError } from '@/services/errorLog';
 import i18n, { resolveLanguage } from '@/services/i18n';
 import { supabase } from '@/services/supabaseConfig';
 import { Session } from '@supabase/supabase-js';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 interface AppUser {
   uid: string;
@@ -37,52 +39,60 @@ export function useSession() {
   return value;
 }
 
+const toAppUser = (data: any): AppUser => ({
+  uid: data.id,
+  email: data.email ?? '',
+  displayName: data.displayName ?? '',
+  language: data.language ?? 'en',
+  country: data.country ?? 'GR',
+  catalogPreference: data.catalogPreference ?? 'international',
+  preferredSubcategories: data.preferredSubcategories ?? [],
+  onboardingComplete: data.onboardingComplete ?? false,
+  isAdmin: data.isAdmin ?? false,
+});
+
 export function SessionProvider(props: React.PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // The user whose profile we should be showing; lets a slow fetch for a
+  // previous user (or after sign-out) be thrown away instead of applied.
+  const activeUserId = useRef<string | null>(null);
+  const failsafeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchUserProfile = async (userId: string, retries = 3): Promise<void> => {
+  const fetchUserProfile = useCallback(async (userId: string, retries = 3): Promise<boolean> => {
     const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
+    if (activeUserId.current !== userId) return false;
     if (error || !data) {
       if (retries > 0) {
         await new Promise(res => setTimeout(res, 1500));
         return fetchUserProfile(userId, retries - 1);
       }
-      if (__DEV__) console.log('[Auth] User profile not found in DB for uid:', userId);
-      setUser(null);
-      return;
+      void logError(error ?? new Error('user profile row not found'), 'auth/fetchUserProfile');
+      return false;
     }
-    if (data) {
-      const profile: AppUser = {
-        uid: data.id,
-        email: data.email ?? '',
-        displayName: data.displayName ?? '',
-        language: data.language ?? 'en',
-        country: data.country ?? 'GR',
-        catalogPreference: data.catalogPreference ?? 'international',
-        preferredSubcategories: data.preferredSubcategories ?? [],
-        onboardingComplete: data.onboardingComplete ?? false,
-        isAdmin: data.isAdmin ?? false,
-      };
-      setUser(profile);
-      i18n.changeLanguage(resolveLanguage(profile.language));
+    const profile = toAppUser(data);
+    setUser(profile);
+    i18n.changeLanguage(resolveLanguage(profile.language));
+    return true;
+  }, []);
+
+  const loadProfile = useCallback(async (userId: string) => {
+    const loaded = await fetchUserProfile(userId);
+    if (activeUserId.current !== userId) return;
+    if (failsafeTimer.current) clearTimeout(failsafeTimer.current);
+    setIsLoading(false);
+    if (loaded) {
+      supabase.from('users').update({ lastLoginAt: new Date().toISOString() }).eq('id', userId).then(() => {});
     }
-  };
+  }, [fetchUserProfile]);
 
   useEffect(() => {
     // Session restoration relies SOLELY on onAuthStateChange, which fires its
     // own INITIAL_SESSION event with the restored session immediately on
     // registration (confirmed in @supabase/auth-js's GoTrueClient source).
-    // A separate explicit `getSession()` call used to run alongside this —
-    // removed because both routes internally through the exact same
-    // `_acquireLock` mutex, so the two calls contended for one lock on every
-    // cold start. That contention, with no timeout anywhere in this chain,
-    // could leave `isLoading` stuck `true` forever on first launch — the
-    // splash screen (gated on `!isLoading`) would then never dismiss, and
-    // only a full app restart (fresh JS engine, fresh lock state) recovered.
-    // It also meant fetchUserProfile() and the lastLoginAt update both ran
-    // twice on every cold start, once from each path.
+    // A separate explicit `getSession()` call used to run alongside this and
+    // contended with it on cold start, which could leave the splash stuck.
     let resolved = false;
 
     // Safety net independent of the root cause above: guarantees the splash
@@ -95,18 +105,23 @@ export function SessionProvider(props: React.PropsWithChildren) {
       }
     }, 8000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    failsafeTimer.current = failsafe;
+
+    // This callback must stay synchronous and must not await any other
+    // Supabase call. The library awaits it while it is still initialising
+    // (for example while refreshing an expired token at cold start), and a
+    // request made from inside it waits for that same initialisation: a
+    // deadlock, after which the profile never loaded and Home showed "Reader"
+    // forever. The profile is loaded by the effect below instead.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (__DEV__) console.log('[Auth] onAuthStateChange:', _event, 'uid:', newSession?.user?.id ?? 'null');
       setSession(newSession);
-      if (newSession) {
-        await fetchUserProfile(newSession.user.id);
-        supabase.from('users').update({ lastLoginAt: new Date().toISOString() }).eq('id', newSession.user.id).then(() => {});
-      } else {
+      if (!newSession) {
         setUser(null);
+        resolved = true;
+        clearTimeout(failsafe);
+        setIsLoading(false);
       }
-      resolved = true;
-      clearTimeout(failsafe);
-      setIsLoading(false);
     });
 
     return () => {
@@ -114,6 +129,26 @@ export function SessionProvider(props: React.PropsWithChildren) {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Load the profile whenever the signed-in user changes (cold start, sign-in,
+  // sign-up). Token refreshes keep the same user id and do not reload it.
+  const userId = session?.user.id ?? null;
+  useEffect(() => {
+    activeUserId.current = userId;
+    if (!userId) return;
+    void loadProfile(userId);
+  }, [userId, loadProfile]);
+
+  // A profile that failed to load (no network at launch, say) is retried when
+  // the app comes back to the foreground, instead of leaving Home empty.
+  const hasProfile = !!user;
+  useEffect(() => {
+    if (!userId || hasProfile) return;
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') void loadProfile(userId);
+    });
+    return () => sub.remove();
+  }, [userId, hasProfile, loadProfile]);
 
   // Real-time user profile updates
   useEffect(() => {
@@ -128,18 +163,7 @@ export function SessionProvider(props: React.PropsWithChildren) {
         table: 'users',
         filter: `id=eq.${userId}`,
       }, (payload) => {
-        const data = payload.new as any;
-        const profile: AppUser = {
-          uid: data.id,
-          email: data.email ?? '',
-          displayName: data.displayName ?? '',
-          language: data.language ?? 'en',
-          country: data.country ?? 'GR',
-          catalogPreference: data.catalogPreference ?? 'international',
-          preferredSubcategories: data.preferredSubcategories ?? [],
-          onboardingComplete: data.onboardingComplete ?? false,
-          isAdmin: data.isAdmin ?? false,
-        };
+        const profile = toAppUser(payload.new);
         setUser(profile);
         i18n.changeLanguage(resolveLanguage(profile.language));
       })
