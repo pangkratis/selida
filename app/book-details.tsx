@@ -10,11 +10,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { logUserActivity } from '../services/userActivity';
 import { useSession } from './ctx';
 
 type BookGenre = { slug: string; name_en: string; name_el: string };
+
+// On Android a pill sized to its text could break the text at a space and hide
+// the second line even though the pill was wide enough ("Αμερικανική πεζογραφία"
+// showed as "Αμερικανική"). Non-breaking spaces rule that out. Labels longer
+// than this are wider than a row anyway, so they keep normal spaces and wrap.
+const CHIP_NO_WRAP_MAX = 40;
 
 export default function BookDetailsScreen() {
     const { t, i18n } = useTranslation();
@@ -29,6 +35,7 @@ export default function BookDetailsScreen() {
     const [coverVisible, setCoverVisible] = useState(false);
     const [genres, setGenres] = useState<BookGenre[]>([]);
     const { width } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         if (!user?.uid || !book?.id) return;
@@ -172,7 +179,7 @@ export default function BookDetailsScreen() {
     /* ── Render ──────────────────────────────────────────────────── */
 
     return (
-        <SafeAreaView edges={['top', 'bottom']} style={[styles.container, { backgroundColor: theme.background }]}>
+        <SafeAreaView edges={['bottom']} style={[styles.container, { backgroundColor: theme.background }]}>
             {/*
               ScrollView MUST be the sheet's first child (react-native-screens' iOS form-sheet
               finds its "tracking" scroll view by walking only the FIRST child at each level —
@@ -184,7 +191,7 @@ export default function BookDetailsScreen() {
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
 
                 {/* ── Hero Zone ─────────────────────────────────── */}
-                <View style={[styles.hero, { backgroundColor: heroTint }]}>
+                <View style={[styles.hero, { backgroundColor: heroTint, paddingTop: insets.top + 16 }]}>
                     {/* Close */}
                     <TouchableOpacity
                         onPress={() => router.back()}
@@ -259,7 +266,7 @@ export default function BookDetailsScreen() {
                                         style={[styles.chip, { backgroundColor: chipAccent, shadowColor: chipAccent }]}
                                     >
                                         <ThemedText style={[styles.chipText, { color: '#fff', fontFamily: roundedFont('600') }]}>
-                                            {label}
+                                            {label.length <= CHIP_NO_WRAP_MAX ? label.replace(/ /g, '\u00A0') : label}
                                         </ThemedText>
                                     </View>
                                 );
@@ -355,7 +362,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scroll: {
-        paddingTop: 16,
         paddingBottom: 40,
     },
 
@@ -363,7 +369,6 @@ const styles = StyleSheet.create({
     hero: {
         paddingHorizontal: Spacing.xl,
         paddingBottom: 28,
-        paddingTop: 0,
         borderBottomLeftRadius: 28,
         borderBottomRightRadius: 28,
         alignItems: 'center',
