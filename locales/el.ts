@@ -1,6 +1,7 @@
 const el = {
   // Common
   cancel: 'Ακύρωση',
+  dialogOk: 'Εντάξει',
   seeAll: 'Όλα',
   unknownTitle: 'Άγνωστος τίτλος',
   unknownAuthor: 'Άγνωστος συγγραφέας',
@@ -150,6 +151,10 @@ const el = {
   settingsLangDevice: 'Συσκευή',
   settingsLangEn: 'Αγγλικά',
   settingsLangEl: 'Ελληνικά',
+  settingsAppearance: 'Εμφάνιση',
+  settingsThemeSystem: 'Συσκευή',
+  settingsThemeLight: 'Φωτεινό',
+  settingsThemeDark: 'Σκούρο',
   settingsAdmin: 'Διαχείριση',
   settingsCatalogIngestion: 'Εισαγωγή καταλόγου',
   settingsBookTriage: 'Διαλογή βιβλίων',
@@ -183,6 +188,8 @@ const el = {
   triageSaveFailed: 'Η απόφαση δεν αποθηκεύτηκε. Το βιβλίο επέστρεψε στη στοίβα.',
   settingsSession: 'Σύνδεση',
   settingsSignOut: 'Αποσύνδεση',
+  settingsSignOutConfirmTitle: 'Αποσύνδεση;',
+  settingsSignOutConfirmMessage: 'Θα χρειαστεί να συνδεθείς ξανά για να δεις τη βιβλιοθήκη σου.',
   settingsDeleteAccount: 'Διαγραφή λογαριασμού',
   settingsDeleteAccountConfirmTitle: 'Διαγραφή λογαριασμού;',
   settingsDeleteAccountConfirmMessage: 'Αυτό θα διαγράψει οριστικά τον λογαριασμό σου και όλα τα δεδομένα σου — λίστες ανάγνωσης, συνεδρίες και δραστηριότητα. Δεν μπορεί να αναιρεθεί.',

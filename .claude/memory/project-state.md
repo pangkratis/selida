@@ -20,22 +20,29 @@
   scan, `createdAt` index), orders by bookStats engagement then a per-user per-day md5 shuffle
   (stable while paging, rotates daily), excludes the caller's reading list server-side, and
   reads `books` for the page only. Author kind collapses editions by title. 20–400 ms warm.
-- **Snap-to-start (2026-10-15)**: Home shelves pass `snapCenter` (name is historical) to
-  `HorizontalBookShelf`: `snapToInterval` = card 140 + gap 16 with the normal 20 left padding, so a
-  small swipe moves exactly one book and each snap lines that book up with the left margin; the
-  first book rests at the margin like before. Opt-in because Explore/onboarding use the same shelf
-  inside narrower padded containers. **Tried and dropped**: symmetric padding `(screenWidth−140)/2`
-  to centre books (leaves a big empty gap before the first book), `snapToOffsets` with a
-  left-aligned first book and centred rest (cards rested at odd positions on Android), and
-  `decelerationRate="normal"` for longer flicks (small swipes stopped advancing) — stays `"fast"`.
-  `disableIntervalMomentum` is on so a medium swipe also moves one book. Measured on the emulator
-  (adb swipes, fixed gestures; book indices from `uiautomator dump`): before it, a 500px/150ms
-  swipe moved 2 books; after it, 200px and 500px (≈ a third of the screen) move exactly 1,
-  700px moves 2, a 1150px/90ms flick moves 3. Android's `disableIntervalMomentum` doesn't cap hard
-  flicks at one, which suits browsing.
-  Testing gotcha: Fast Refresh keeps a shelf's native scroll offset, so judge snapping after a
-  cold start (force-stop Expo Go), and dismiss Expo Go's first-launch developer-menu popup.
-  adb synthetic swipes can't judge real flick momentum — check on a real device.
+- **One swipe = one book, centred (2026-10-21, replaces the earlier snap-to-start)**: Home shelves
+  pass `snapCenter` to `HorizontalBookShelf`. The first book rests at the left margin (20 dp); every
+  later book snaps to the screen centre with the margin included in the maths
+  (`offset_i = left + 156·i + 70 − viewport/2`, `buildSnapOffsets`; right padding `(viewport−140)/2`
+  so the last book can centre too; on screens wider than ~490 dp the first few books share offset 0).
+  Native snapping is NOT used: `decelerationRate={0}` kills native momentum, and `onScrollBeginDrag`
+  / `onScrollEndDrag` pick `start ± 1` (drag > 24 dp, or > 8 dp with a quick flick) and call
+  `scrollToOffset({animated:true})`, so short, medium, long and hard swipes all end identically.
+  **Android reports the release velocity of the finger, iOS that of the content — the sign is flipped
+  on Android**; direction comes from the drag distance first (a velocity-only direction made backward
+  swipes go forward). Opt-in: Explore/onboarding use the same shelf in padded containers.
+  Measured 2026-10-21 (adb swipes, Pixel emulators, density overridden to emulate widths, app
+  restarted each time): 360/411/448/601/768 dp wide → every swipe 67–383 dp long moves exactly one
+  book, forward and backward, and lands within 0.3 dp of the screen centre; 28 swipes in a row
+  keep centring while more pages load; tapping the centred book opens details; vertical page scroll
+  from over a shelf still works.
+  **Tried and dropped**: `snapToInterval` (left-aligned, long swipes carried 2–3 books, and its
+  rounded px step drifted on fractional densities); `snapToOffsets` with all offsets (long swipes
+  skip books) or a 3-offset window (a drag past the window rests anywhere); symmetric padding
+  `(width−140)/2` at the start (big empty gap before the first book).
+  **Untested**: iOS (momentum/velocity semantics differ), real fingers, real small/large hardware.
+  Testing gotchas: Fast Refresh keeps a shelf's native scroll offset (cold-start Expo Go to test),
+  and changing density at runtime leaves stale px conversions (restart the app after each change).
 - **Topic shelves no longer use `books.categories` (2026-10-17)**: "Because you read" and
   "Popular in" are seeded from a genre or a subject heading. `computeDynamicPlan` (index.tsx) picks,
   per sampled reading-list book, the most specific subject heading that has ≥ `MIN_TOPIC_BOOKS`
@@ -486,6 +493,51 @@ hex). Uses the app's own theme tokens throughout.
   exposed in git history and past local builds regardless of this fix. Not the app's call to make;
   flagged to the user.
 
+### Themed dialogs — sign out / delete account confirmations (2026-10-21)
+- `components/app-dialog.tsx`: `DialogProvider` (mounted in `app/_layout.tsx` around `<Root/>`) +
+  `useDialog()` → `confirm({title,message,icon,confirmLabel,cancelLabel,destructive})` →
+  `Promise<boolean>` and `alert({title,message,icon,okLabel})` → `Promise<void>`. One themed dialog at
+  a time (queued), RN `Modal` (so it also works on web, unlike `Alert.alert`), card on a dimmed
+  backdrop, icon circle, rounded title/message, stacked pill buttons (confirm on top, accent or red when
+  `destructive`; cancel below). Backdrop tap / Android back / Cancel all resolve `false`.
+  Strings: `dialogOk`, `settingsSignOutConfirm*` (en + el).
+- Settings: **Sign out** asks first; **Delete account** (already confirmed before) and its failure
+  message now use the same dialogs. Verified on Android in dark, light and Greek; cancelled every
+  dialog (nothing signed out or deleted); confirming buttons themselves not pressed.
+- **Still using the generic `Alert.alert`** (8 call sites): login.tsx (reset-password + login-failed),
+  book-triage.tsx, book-triage-list.tsx, catalog-ingestion.tsx (clear-database confirm + done). Swap to
+  `useDialog()` when wanted.
+
+### Book details fixes (2026-10-21)
+- **Dark gap at the top of the sheet**: the hero tint now starts at the very top — `SafeAreaView`
+  edges are `['bottom']` only and the hero carries `paddingTop: insets.top + 16` (the old 16 pt of
+  `ScrollView` padding and the top safe-area both used to sit above it in the plain background).
+- **Chip text cut to its first word** (e.g. "Αμερικανική πεζογραφία" → "Αμερικανική" on a wide
+  pill): reproduced on Android; the data was clean. `numberOfLines` + `ellipsizeMode="clip"` does NOT fix it
+  (single-line text still breaks at the space and drops the rest). Fix: labels ≤ `CHIP_NO_WRAP_MAX`
+  (40 chars) use non-breaking spaces; longer ones (12 real headings, max 54) keep normal spaces and
+  wrap onto two lines. Same risk may exist in other text-sized pills (onboarding genre chips,
+  triage chips) — not checked.
+- Testing gotcha: Fast Refresh did not update a running Expo Go session reliably here; cold-start
+  the app after each edit. Deep links with a long JSON `book` param get truncated — open books by tapping.
+
+### Appearance setting — light / dark / device (added 2026-10-21)
+- Settings → Preferences → **Appearance**: Device (default) / Light / Dark, a `SegmentedControl`
+  (generalised from the old language-only control; both use `StackedSetting`). Strings:
+  `settingsAppearance`, `settingsThemeSystem|Light|Dark` (en + el).
+- Store: `services/theme-preference.ts` — `ThemePreference` ('system'|'light'|'dark') in AsyncStorage
+  key `selida.themePreference` (device-local, NOT in `users`, unlike language), `useThemePreference()`
+  via `useSyncExternalStore`, `setThemePreference()`. On native it also calls
+  `Appearance.setColorScheme(null|'light'|'dark')` so the status bar, alerts and keyboard follow.
+- `hooks/use-color-scheme.ts` (+ `.web.ts`) now returns the user's choice, else the system scheme —
+  every screen already used this hook, so nothing else changed. `app/_layout.tsx` `RootLayout` loads
+  the preference before the first render (holds the splash) to avoid a wrong-theme flash.
+- Verified on the emulator: switches instantly; Home/Explore/Profile/Settings/book details look right
+  in dark; saved choice survives an app restart; Device follows the OS (toggled with
+  `adb shell cmd uimode night yes|no`), Light/Dark ignore it; Greek labels fit.
+- Known: the native Android splash screen follows the OS setting, not this choice (a brief mismatch on
+  launch if they differ). Not tested on iOS or web.
+
 ### Book triage — admin swipe deck that orders the subcategory sync (added 2026-10-17)
 - Screen `app/book-triage.tsx` (Settings → Admin → "Book triage"; route registered in
   `app/_layout.tsx` with `fullScreenGestureEnabled: false` so the back swipe can't steal card
@@ -495,8 +547,9 @@ hex). Uses the app's own theme tokens throughout.
   (description, categories, ISBN) — the pan uses `activeOffsetX` + `failOffsetY` so it doesn't
   conflict. Counters: books without subcategories, in sync list, to review.
 - Data: `book_triage` (one row per book: decision, decided_by, decided_at), admin-only RLS.
-  RPCs (all check `fn_require_admin()`): `get_triage_deck(limit, exclude_ids)` (by popularity then
-  newest added, index `books_subsync_recent_idx`), `get_triage_counts()`, `get_subsync_batch(limit)`.
+  RPCs (all check `fn_require_admin()`): `get_triage_deck(limit, exclude_ids)` (newest `publishedYear`
+  first, then popularity, then newest added — migration_29, index `books_subsync_year_idx`;
+  user's choice 2026-10-16), `get_triage_counts()`, `get_subsync_batch(limit)`.
   Trigger `trg_triage_clear_on_sync` deletes priority/skip rows when `syncedSub` turns true; review
   rows stay. Service: `services/book-triage.ts`. SQL: `sql/migration_26_book_triage.sql`.
 - `syncSubcategories()` takes its batch from `get_subsync_batch`: priority list (oldest first),
@@ -1190,7 +1243,7 @@ bookId text (PK), views, reading, completed, wishlist, lastActivityAt
 ### users
 id uuid, displayName, email, language, country, catalogPreference, onboardingComplete, preferredSubcategories text[], lastLoginAt, isAdmin boolean
 (stats jsonb DROPPED — was never populated)
-`isAdmin` is protected by a `BEFORE UPDATE` trigger (`migration_10_protect_admin_flag.sql`, added
+**Changed 2026-10-17 (migration_28)**: the trigger now only blocks the API roles `anon`/`authenticated` (SECURITY INVOKER, checks `current_user`), so the user can edit `isAdmin` from the Supabase dashboard / SQL editor (postgres) or with service_role — user's rule: manual changes by the database administrators must always be allowed. Verified: an app user still cannot grant themselves admin. `isAdmin` is protected by a `BEFORE UPDATE` trigger (`migration_10_protect_admin_flag.sql`, added
 2026-09-19) — a client can send `isAdmin` in a self-PATCH and it will be silently ignored/reset
 unless the request is made with the service_role key. See "RLS audit (2026-09-19)" below for why.
 

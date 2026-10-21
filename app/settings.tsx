@@ -1,9 +1,11 @@
 import { useSession } from '@/app/ctx';
 import CountryPicker from '@/components/country-picker';
+import { useDialog } from '@/components/app-dialog';
 import { ThemedText } from '@/components/themed-text';
 import { Country, getCountryByCode } from '@/constants/countries';
 import { AccentPalette, Colors, Spacing, mixHex, roundedFont } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemePreference, setThemePreference, useThemePreference } from '@/services/theme-preference';
 import i18n, { resolveLanguage } from '@/services/i18n';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -13,8 +15,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
+    StyleSheet,
     TextInput,
     TouchableOpacity,
     View,
@@ -139,16 +141,26 @@ function Row({
 
 /* ── Language Segmented Control ──────────────────────────────────── */
 
-const LANG_OPTIONS = [
-    { value: 'en', label: 'English', flag: '🇬🇧' },
-    { value: 'el', label: 'Ελληνικά', flag: '🇬🇷' },
+type SegmentOption = {
+    value: string;
+    label: string;
+    emoji?: string;
+    icon?: React.ComponentProps<typeof Ionicons>['name'];
+};
+
+const LANG_OPTIONS: SegmentOption[] = [
+    { value: 'en', label: 'English', emoji: '🇬🇧' },
+    { value: 'el', label: 'Ελληνικά', emoji: '🇬🇷' },
 ];
 
-function LanguageSegmentedControl({ current, onSelect }: { current: string; onSelect: (v: string) => void }) {
+function SegmentedControl({ options, current, onSelect }: {
+    options: SegmentOption[];
+    current: string;
+    onSelect: (v: string) => void;
+}) {
     const colorScheme = useColorScheme() ?? 'light';
     const theme = Colors[colorScheme];
     const accent = AccentPalette[1];
-    const normalizedCurrent = current === 'device' ? 'en' : current;
 
     return (
         <View style={{
@@ -158,13 +170,15 @@ function LanguageSegmentedControl({ current, onSelect }: { current: string; onSe
             padding: 3,
             gap: 2,
         }}>
-            {LANG_OPTIONS.map(opt => {
-                const active = normalizedCurrent === opt.value;
+            {options.map(opt => {
+                const active = current === opt.value;
                 return (
                     <TouchableOpacity
                         key={opt.value}
                         onPress={() => onSelect(opt.value)}
                         activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
                         style={{
                             flex: 1,
                             flexDirection: 'row',
@@ -177,18 +191,61 @@ function LanguageSegmentedControl({ current, onSelect }: { current: string; onSe
                             backgroundColor: active ? accent : 'transparent',
                         }}
                     >
-                        <ThemedText style={{ fontSize: 14 }}>{opt.flag}</ThemedText>
+                        {opt.emoji && <ThemedText style={{ fontSize: 14 }}>{opt.emoji}</ThemedText>}
+                        {opt.icon && <Ionicons name={opt.icon} size={15} color={active ? '#fff' : theme.secondary} />}
                         <ThemedText style={{
                             fontSize: 13,
                             fontWeight: '700',
                             fontFamily: roundedFont('700'),
                             color: active ? '#fff' : theme.secondary,
-                        }}>
+                        }} numberOfLines={1}>
                             {opt.label}
                         </ThemedText>
                     </TouchableOpacity>
                 );
             })}
+        </View>
+    );
+}
+
+// Label on its own line with the control full-width below: the options are
+// too wide to share a line with the label without truncating it.
+function StackedSetting({ icon, label, divider, children }: {
+    icon: React.ComponentProps<typeof Ionicons>['name'];
+    label: string;
+    divider?: boolean;
+    children: React.ReactNode;
+}) {
+    const colorScheme = useColorScheme() ?? 'light';
+    const theme = Colors[colorScheme];
+    return (
+        <View style={{
+            paddingHorizontal: 18,
+            paddingVertical: 15,
+            ...(divider ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border } : {}),
+        }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
+                <View style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    backgroundColor: AccentPalette[1] + '18',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}>
+                    <Ionicons name={icon} size={17} color={AccentPalette[1]} />
+                </View>
+                <ThemedText style={{
+                    flex: 1,
+                    fontSize: 15,
+                    fontWeight: '600',
+                    fontFamily: roundedFont('600'),
+                    color: theme.text,
+                }} numberOfLines={1}>
+                    {label}
+                </ThemedText>
+            </View>
+            {children}
         </View>
     );
 }
@@ -199,8 +256,10 @@ export default function SettingsScreen() {
     const { t } = useTranslation();
     const router = useRouter();
     const { user, signOut } = useSession();
+    const { confirm, alert } = useDialog();
     const colorScheme = useColorScheme() ?? 'light';
     const theme = Colors[colorScheme];
+    const themePreference = useThemePreference();
 
     const headerTint = mixHex(theme.background, AccentPalette[4], colorScheme === 'dark' ? 0.08 : 0.05);
 
@@ -267,30 +326,42 @@ export default function SettingsScreen() {
 
     const countryData = getCountryByCode((user as any)?.country);
 
-    const handleDeleteAccount = () => {
-        Alert.alert(
-            t('settingsDeleteAccountConfirmTitle'),
-            t('settingsDeleteAccountConfirmMessage'),
-            [
-                { text: t('cancel'), style: 'cancel' },
-                {
-                    text: t('settingsDeleteAccount'),
-                    style: 'destructive',
-                    onPress: async () => {
-                        setDeletingAccount(true);
-                        try {
-                            const { error } = await supabase.functions.invoke('delete-account');
-                            if (error) throw error;
-                            await signOut();
-                        } catch (e) {
-                            void logError(e, 'settings/deleteAccount');
-                            setDeletingAccount(false);
-                            Alert.alert(t('settingsDeleteAccountError'));
-                        }
-                    },
-                },
-            ]
-        );
+    const handleSignOut = async () => {
+        const confirmed = await confirm({
+            icon: 'log-out-outline',
+            title: t('settingsSignOutConfirmTitle'),
+            message: t('settingsSignOutConfirmMessage'),
+            confirmLabel: t('settingsSignOut'),
+            cancelLabel: t('cancel'),
+        });
+        if (confirmed) void signOut();
+    };
+
+    const handleDeleteAccount = async () => {
+        const confirmed = await confirm({
+            icon: 'trash-outline',
+            title: t('settingsDeleteAccountConfirmTitle'),
+            message: t('settingsDeleteAccountConfirmMessage'),
+            confirmLabel: t('settingsDeleteAccount'),
+            cancelLabel: t('cancel'),
+            destructive: true,
+        });
+        if (!confirmed) return;
+
+        setDeletingAccount(true);
+        try {
+            const { error } = await supabase.functions.invoke('delete-account');
+            if (error) throw error;
+            await signOut();
+        } catch (e) {
+            void logError(e, 'settings/deleteAccount');
+            setDeletingAccount(false);
+            await alert({
+                icon: 'alert-circle-outline',
+                title: t('settingsDeleteAccountError'),
+                okLabel: t('dialogOk'),
+            });
+        }
     };
 
     if (!user) return null;
@@ -422,34 +493,24 @@ export default function SettingsScreen() {
 
                 {/* Preferences */}
                 <Section label={t('settingsPreferences')}>
-                    {/* Stacked layout (label on its own line, control full-width below) instead
-                        of the shared single-line Row — the segmented control's flag + full
-                        language name (e.g. "🇬🇷 Ελληνικά") is too wide to share a line with the
-                        label without truncating it down to a single letter. */}
-                    <View style={{ paddingHorizontal: 18, paddingVertical: 15 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 }}>
-                            <View style={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: 10,
-                                backgroundColor: AccentPalette[1] + '18',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}>
-                                <Ionicons name="language-outline" size={17} color={AccentPalette[1]} />
-                            </View>
-                            <ThemedText style={{
-                                flex: 1,
-                                fontSize: 15,
-                                fontWeight: '600',
-                                fontFamily: roundedFont('600'),
-                                color: theme.text,
-                            }} numberOfLines={1}>
-                                {t('settingsLanguage')}
-                            </ThemedText>
-                        </View>
-                        <LanguageSegmentedControl current={currentLang} onSelect={handleLanguageChange} />
-                    </View>
+                    <StackedSetting icon="language-outline" label={t('settingsLanguage')}>
+                        <SegmentedControl
+                            options={LANG_OPTIONS}
+                            current={currentLang === 'device' ? 'en' : currentLang}
+                            onSelect={handleLanguageChange}
+                        />
+                    </StackedSetting>
+                    <StackedSetting icon="contrast-outline" label={t('settingsAppearance')} divider>
+                        <SegmentedControl
+                            options={[
+                                { value: 'system', label: t('settingsThemeSystem'), icon: 'phone-portrait-outline' },
+                                { value: 'light', label: t('settingsThemeLight'), icon: 'sunny-outline' },
+                                { value: 'dark', label: t('settingsThemeDark'), icon: 'moon-outline' },
+                            ]}
+                            current={themePreference}
+                            onSelect={value => setThemePreference(value as ThemePreference)}
+                        />
+                    </StackedSetting>
                 </Section>
 
                 {/* Admin */}
@@ -477,7 +538,7 @@ export default function SettingsScreen() {
                         icon="log-out-outline"
                         iconColor={theme.error}
                         label={t('settingsSignOut')}
-                        onPress={signOut}
+                        onPress={handleSignOut}
                         destructive
                     />
                     <Row

@@ -1,6 +1,7 @@
 const en = {
   // Common
   cancel: 'Cancel',
+  dialogOk: 'OK',
   seeAll: 'See all',
   unknownTitle: 'Unknown Title',
   unknownAuthor: 'Unknown Author',
@@ -150,6 +151,10 @@ const en = {
   settingsLangDevice: 'Device',
   settingsLangEn: 'English',
   settingsLangEl: 'Greek',
+  settingsAppearance: 'Appearance',
+  settingsThemeSystem: 'Device',
+  settingsThemeLight: 'Light',
+  settingsThemeDark: 'Dark',
   settingsAdmin: 'Admin',
   settingsCatalogIngestion: 'Catalog Ingestion',
   settingsBookTriage: 'Book triage',
@@ -183,6 +188,8 @@ const en = {
   triageSaveFailed: 'Could not save that decision. The book is back in the deck.',
   settingsSession: 'Session',
   settingsSignOut: 'Sign out',
+  settingsSignOutConfirmTitle: 'Sign out?',
+  settingsSignOutConfirmMessage: 'You will need to sign in again to see your library.',
   settingsDeleteAccount: 'Delete account',
   settingsDeleteAccountConfirmTitle: 'Delete account?',
   settingsDeleteAccountConfirmMessage: 'This will permanently delete your account and all your data — reading lists, sessions, and activity. This cannot be undone.',

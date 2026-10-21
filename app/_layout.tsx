@@ -6,9 +6,11 @@ import {
   Nunito_800ExtraBold,
   useFonts,
 } from '@expo-google-fonts/nunito';
+import { DialogProvider } from '@/components/app-dialog';
 import ErrorBoundary from '@/components/error-boundary';
 import SplashOverlay from '@/components/splash-overlay';
 import { logEvent, logScreenView } from '@/services/analytics';
+import { loadThemePreference } from '@/services/theme-preference';
 import '@/services/i18n';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -213,10 +215,17 @@ export default function RootLayout() {
     Nunito_800ExtraBold,
   });
 
+  // The saved light/dark choice is read before the first render so the app
+  // never flashes the wrong theme.
+  const [themeReady, setThemeReady] = useState(false);
+  useEffect(() => {
+    void loadThemePreference().finally(() => setThemeReady(true));
+  }, []);
+
   // Keep rendering null (behind the splash screen) until fonts are ready.
   // Splash is then hidden by Root once auth state is also resolved.
   // On iOS this resolves almost instantly since ui-rounded is a system font.
-  if (!fontsLoaded && !fontError) return null;
+  if ((!fontsLoaded && !fontError) || !themeReady) return null;
 
   // The boundary sits OUTSIDE SessionProvider so that a crash in the provider
   // itself (session restore, the realtime subscription) is caught too, rather
@@ -224,7 +233,9 @@ export default function RootLayout() {
   return (
     <ErrorBoundary context="RootLayout">
       <SessionProvider>
-        <Root />
+        <DialogProvider>
+          <Root />
+        </DialogProvider>
       </SessionProvider>
     </ErrorBoundary>
   );
