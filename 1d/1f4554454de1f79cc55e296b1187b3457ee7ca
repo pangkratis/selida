@@ -1,0 +1,27 @@
+package.json
+  s_d6d65f87308408::t_995877909eb093 23
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_0f3a1503b64789 517-537
+  s_d6d65f87308408::t_1432b96ddd40d6 496-516
+app.json
+  s_d6d65f87308408::t_3a64c33646b82f 48-56
+  s_d6d65f87308408::t_995877909eb093 47
+package-lock.json
+  s_d6d65f87308408::t_e3ef7c6f5db816 20,6290-6336,7142-7157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "1d1f4554454de1f79cc55e296b1187b3457ee7ca",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
