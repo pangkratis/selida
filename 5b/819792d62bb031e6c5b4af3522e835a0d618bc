@@ -1,0 +1,21 @@
+sql/migration_28_admin_flag_dashboard_edits.sql
+  s_d6d65f87308408::t_793af0c16b17dc 1-26
+sql/migration_29_triage_deck_newest_first.sql
+  s_d6d65f87308408::t_e698b6e225f31f 1-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "5b819792d62bb031e6c5b4af3522e835a0d618bc",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
