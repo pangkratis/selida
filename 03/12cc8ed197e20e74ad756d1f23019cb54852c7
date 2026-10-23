@@ -1,0 +1,24 @@
+patches/react-native-screens+4.16.0.patch
+  s_d6d65f87308408::t_4187059960d88f 1-17
+package.json
+  s_d6d65f87308408::t_816a69624b4d50 11-12
+  s_d6d65f87308408::t_8a24438827f95c 58
+package-lock.json
+  s_d6d65f87308408::t_50e46254c86539 54,3998-4004,7289-7298,7366-7380,8791-8810,8830-8852,8879-8888,10392-10460,12506-12515,12835-12844
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0312cc8ed197e20e74ad756d1f23019cb54852c7",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
