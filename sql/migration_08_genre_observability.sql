@@ -51,7 +51,9 @@ AS $$
   LIMIT p_limit;
 $$;
 
-GRANT EXECUTE ON FUNCTION get_unmapped_subjects(int) TO authenticated, anon;
+-- Admin diagnostics only (changed 2026-10-23 before first applying this file): run them from
+-- the SQL console / CLI as the database owner; the app never calls them.
+REVOKE EXECUTE ON FUNCTION get_unmapped_subjects(int) FROM PUBLIC, anon, authenticated;
 
 -- ── get_genre_coverage ────────────────────────────────────────────────────────
 -- Single-row health check. Run before and after each subcategory sync batch to
@@ -91,7 +93,7 @@ AS $$
     (SELECT COUNT(*) FROM books WHERE "syncedSub" IS DISTINCT FROM true)::bigint;
 $$;
 
-GRANT EXECUTE ON FUNCTION get_genre_coverage() TO authenticated, anon;
+REVOKE EXECUTE ON FUNCTION get_genre_coverage() FROM PUBLIC, anon, authenticated;
 
 -- =============================================================================
 -- Usage

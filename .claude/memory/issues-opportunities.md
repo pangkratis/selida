@@ -535,3 +535,6 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   file keeps growing. The stale "StatsTiles, CategoryCloud, BookTabList" suggestion here no
   longer applies — those don't exist in the current structure.
 - Same for home (index.tsx): ContinueReadingSection, RecommendationsSection, etc.
+
+- (2026-10-23) tied_books went 3,039 -> 3,199 after migration_31; check what the metric counts and whether the remaining ties matter.
+- (2026-10-23) Table bloat on `books` and `book_genres` (dead tuples >> live); autovacuum last ran 10-03 / 10-19. Slows offset-based paging; consider vacuum from the dashboard.

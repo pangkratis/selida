@@ -1601,3 +1601,11 @@ INSERT/UPDATE, the biblionet-proxy quota-exhaustion vector), in `issues-opportun
 2. Play Console: create app, fill data safety form + listing content, start closed testing
 3. After 14 days + 12 testers: promote to production, or `eas submit --platform android` if a
    Play Console API service-account key is set up for automated submission
+
+## Genre rules round 2 (2026-10-23)
+- migration_08 applied; `get_unmapped_subjects` / `get_genre_coverage` are owner-only (revoked from API roles).
+- migration_31 applied: 167 new subject rules (339 total) and category signals count x0.5 when the book has any subject-derived genre. Resolvers `fn_resolve_book_genres` / `fn_resolve_all_book_genres` replaced.
+- Re-resolved all 11,795 books with subject headings, then `refresh_genre_book_counts()`.
+- Before -> after: classified 153,684 -> 154,231; headings_no_genre 889 -> 596; kids books primary philosophy 564 -> 0; dino book primary philosophy -> childrens; tied_books 3,039 -> 3,199 (rose slightly, not yet investigated).
+- Re-resolve procedure lesson: do NOT page with `offset N` (books has ~186k dead tuples; deep offsets exceed the ~120s Management API limit even for one row). Page by keyset: `where id > '<last>' order by id limit 1000` (~5s per 1000).
+- Bloat: books (186k dead / 21k live) and book_genres (161k dead / 15k live); `vacuum` via the API did not reduce it; worth a look in the dashboard.
