@@ -1,0 +1,25 @@
+sql/migration_08_genre_observability.sql
+  s_d6d65f87308408::t_8b54871b1eb6c6 54-56,96
+sql/migration_31_genre_rules_and_weights.sql
+  s_d6d65f87308408::t_3ceec0e14c7c1d 1-206
+.claude/memory/issues-opportunities.md
+  s_d6d65f87308408::t_7d122d2a2297b6 538-540
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_7d122d2a2297b6 1604-1611
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "7f407408763b67c108223619eb2d5fa7692ba2b2",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
