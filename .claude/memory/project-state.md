@@ -493,6 +493,31 @@ hex). Uses the app's own theme tokens throughout.
   exposed in git history and past local builds regardless of this fix. Not the app's call to make;
   flagged to the user.
 
+### Automatic subcategory sync (added 2026-10-23)
+- Replaces pressing "Sync subcategories" every day. `pg_cron` job `subsync-run` (`*/4 * * * *`) does
+  `net.http_post` to Edge Function `sync-subcategories` (deployed `--no-verify-jwt`; pinned in
+  `supabase/config.toml`) **only when `fn_subsync_should_run()` is true**, so an idle day costs no calls.
+- Function (`supabase/functions/sync-subcategories/index.ts`): auth = `x-cron-secret` header vs secret
+  `SUBSYNC_CRON_SECRET` (same value stored in Vault as `subsync_cron_secret`). Claims a run with
+  `fn_subsync_begin(60)`, takes books from `fn_subsync_next_batch` (same order as the button: triage sync
+  list oldest-first, then untriaged by popularity; skip/review never), calls Biblionet
+  `get_title_subject` directly with `BIBLIONET_USERNAME/PASSWORD`, parses exactly like the app
+  (split on " - "), writes `subcategories` + `syncedSub=true` (existing triggers then build links/genres).
+  100 s time budget, 2 attempts per book, stops after 3 consecutive failures and pauses 4 h. Returns 202
+  at once and works in `EdgeRuntime.waitUntil`; `{"wait":true,"maxBooks":N}` runs synchronously (testing).
+  Measured: ~5.7 s per book, 19 books in one automatic run, so ~900/day takes ~3 h of 4-minute ticks.
+- State: table `subsync_state` (single row; RLS on, no policies — service role / owner only): `enabled`,
+  `daily_limit` (900), UTC `day`, `requests_today`, `synced_today`, `paused_until`, `running_since`
+  (6-min stale lock), `last_result`, `total_synced`. **Pause:** `update subsync_state set enabled=false;`
+  **Remove:** `select cron.unschedule('subsync-run');` Check: `select * from subsync_state;`
+- `get_subsync_batch` (the button) now just wraps `fn_subsync_next_batch` after `fn_require_admin()`.
+  New functions are service_role-only. SQL: `sql/migration_30_subsync_automation.sql` (enables `pg_net`;
+  the secret setup steps are in its header, not in the file).
+- Caveats: counts only its own requests against the 900/day — the manual button, catalogue ingestion and
+  contributor sync share Biblionet's real quota, so pressing the button as well can trigger the 4 h pause.
+  The day rolls at UTC midnight (03:00 Athens), not at Biblionet's own reset (unknown); the failure pause
+  covers the mismatch.
+
 ### Android release build: R8 minify + shrink on (2026-10-21)
 - Why: Play Console warned "DEX code optimization is below our threshold — Obfuscation (2%)": release
   builds had R8 off (`android.enableMinifyInReleaseBuilds` defaulted to false).
@@ -506,11 +531,27 @@ hex). Uses the app's own theme tokens throughout.
   Settings, Appearance switch, sign-out dialog, admin Book triage with a saved swipe): no
   ClassNotFound / NoSuchMethod / NoClassDefFound, no new crashes. The Play warning itself clears only
   after a production build with this setting is uploaded and processed.
-- **Pre-existing crash found while testing (NOT caused by R8)**: about 3 in 10 cold starts of the
-  release app crash on the Pixel 4a API 36 emulator with `IndexOutOfBoundsException:
-  getChildDrawingOrder() returned invalid index 2 (child count is 2)` in React Native's ReactViewGroup
-  draw. Same rate (3/10) in both the minified build and the unminified 2026-10-12 build. Not investigated
-  yet; cause unknown (first suspects: the animated background circles / overlays at launch).
+- **Pre-existing launch crash (NOT caused by R8) — root cause found 2026-10-21**: ~3 in 10 cold starts of
+  the release app, when signed out, crashed with `IndexOutOfBoundsException: getChildDrawingOrder()
+  returned invalid index 2 (child count is 2)` ~0.4 s after launch (same rate in the minified build and
+  the unminified 2026-10-12 build). Cause is the upstream react-native-screens bug
+  (software-mansion/react-native-screens #4564 / #4519 / backport #4642): `Screen.startTransitionRecursive`
+  inserts a filler `View` *at the index of* the `CircleImageView` inside any AndroidX `SwipeRefreshLayout`
+  on the outgoing screen; `SwipeRefreshLayout` caches that inflated index in `onMeasure`, and when Fabric then
+  unmounts the screen's content the next draw returns an out-of-range index. Our Home `ScrollView` has a
+  `RefreshControl` (= SwipeRefreshLayout), and a signed-out launch starts on `(tabs)` then
+  `router.replace`s to login within ~0.4 s, so the transition away from Home hits the race; it only
+  happens when a layout pass lands inside the window, hence sporadic. Signed-in launches have no such
+  transition (0 crashes in 15 with a stale session). Also affects sign-out, so a likely first-launch
+  crash for brand-new users. Android 16 / API 36 emulator; unknown on real devices.
+- **Fix**: `patches/react-native-screens+4.16.0.patch` (via `patch-package`, `postinstall` script) appends
+  the filler instead of inserting it: `it.addView(View(context))` in `Screen.kt` (the upstream change).
+  **Verified 2026-10-21** on build 0591502a (patched, minified preview APK): 0 crashes in 20 cold starts signed
+  out (baseline 3/10 on both the minified and unminified builds without the patch; chance of 0/20 at a 30%
+  rate is ~0.1%).
+  Kept at Expo's pinned 4.16.0 rather than upgrading the library. Generated with
+  `npx patch-package react-native-screens --exclude 'android/(\.cxx|build)/'` (the library folder holds stray
+  build output that must not go into the patch). Re-check the patch when Expo bumps react-native-screens.
 - Testing note: `adb install -r -d` can swap builds on the userdebug emulator for A/B tests. Preview
   builds can queue in EAS for ~40 min before starting.
 
