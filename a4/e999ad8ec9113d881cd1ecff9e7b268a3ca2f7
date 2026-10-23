@@ -1,0 +1,27 @@
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_1afcf3c6748805 496-520
+  s_d6d65f87308408::t_b857b3a8f559ce 534-548,552-554
+  s_d6d65f87308408::t_da81630873fed9 549-551
+supabase/functions/sync-subcategories/index.ts
+  s_d6d65f87308408::t_71e62997102b5d 1-166
+sql/migration_30_subsync_automation.sql
+  s_d6d65f87308408::t_5083c086c4e754 1-196
+supabase/config.toml
+  s_d6d65f87308408::t_1afcf3c6748805 445-449
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "a4e999ad8ec9113d881cd1ecff9e7b268a3ca2f7",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-sonnet-5-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
