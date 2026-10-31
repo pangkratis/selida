@@ -2,56 +2,42 @@ import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, useWindowDimensions, View } from 'react-native';
+import { useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { getTabBarIslandWidth, TAB_BAR_ISLAND_GAP, TAB_BAR_ISLAND_HEIGHT } from '@/constants/tab-bar';
-import { AccentPalette, Colors } from '@/constants/theme';
+import { AccentPalette, Colors, mixHex } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 /**
- * Capsule rendered behind the focused tab's icon. iOS: a neutral dark-grey
- * "pressed in" fill plus a real INSET shadow via `boxShadow` — the icon
- * glyph itself already carries the accent color, so the capsule doesn't
- * need to. Android: no capsule at all, just the accent-colored icon —
- * Android's `boxShadow`/`inset` rendering has known bugs where it ignores
- * the view's `borderRadius` regardless of `overflow:'hidden'` (the shadow
- * paints as part of the view's own border/background layer, not clippable
- * child content — see react-native-screens#2669 and react-native#48874),
- * rendering as a visible square. Rather than fight that, Android drops the
- * capsule background entirely per explicit request, instead of shipping a
- * broken-looking shadow.
+ * Every tab always shows its own accent color, so the bar stays readable in
+ * dark mode (the old grey inactive icons nearly vanished on the dark surface).
+ * The focused tab is a solid accent circle with a white filled glyph; the
+ * others show their outline glyph in a slightly muted version of their color.
+ * A plain background + borderRadius renders the same on iOS and Android (the
+ * old iOS-only inset `boxShadow` capsule was what Android drew as a square).
  */
-function TabIcon({ name, filledName, focused, color }: {
+function TabIcon({ name, filledName, focused, accent }: {
   name: React.ComponentProps<typeof IconSymbol>['name'];
   filledName: React.ComponentProps<typeof IconSymbol>['name'];
   focused: boolean;
-  color: string;
+  accent: string;
 }) {
-  const colorScheme = useColorScheme();
-  const pressedBackground = colorScheme === 'dark' ? 'rgba(0,0,0,0.32)' : 'rgba(0,0,0,0.09)';
-  const pressedShadowColor = colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.3)';
-  const pressedHighlightColor = colorScheme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.6)';
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme];
+  const muted = mixHex(theme.surface, accent, colorScheme === 'dark' ? 0.78 : 0.7);
 
   return (
-    <View style={{
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      overflow: 'hidden',
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: focused && Platform.OS === 'ios' ? pressedBackground : 'transparent',
-      ...(focused && Platform.OS === 'ios' && {
-        boxShadow: [
-          { offsetX: 0, offsetY: 2, blurRadius: 5, color: pressedShadowColor, inset: true },
-          { offsetX: 0, offsetY: -1, blurRadius: 1.5, color: pressedHighlightColor, inset: true },
-        ],
-      }),
-    }}>
-      <IconSymbol size={24} name={focused ? filledName : name} color={color} />
+    <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+      {/* Mounted only while focused: on Android, switching an existing view's
+          background from transparent to a color dropped its borderRadius and
+          drew a square. A freshly mounted circle always keeps its rounding. */}
+      {focused && (
+        <View style={{ position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: accent }} />
+      )}
+      <IconSymbol size={focused ? 22 : 24} name={focused ? filledName : name} color={focused ? '#fff' : muted} />
     </View>
   );
 }
@@ -152,7 +138,7 @@ export default function TabLayout() {
           title: t('tabHome'),
           tabBarActiveTintColor: AccentPalette[1],
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="house" filledName="house.fill" focused={focused} color={focused ? AccentPalette[1] : theme.tabIconDefault} />
+            <TabIcon name="house" filledName="house.fill" focused={focused} accent={AccentPalette[1]} />
           ),
         }}
       />
@@ -162,7 +148,7 @@ export default function TabLayout() {
           title: t('tabExplore'),
           tabBarActiveTintColor: AccentPalette[4],
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="safari" filledName="safari.fill" focused={focused} color={focused ? AccentPalette[4] : theme.tabIconDefault} />
+            <TabIcon name="safari" filledName="safari.fill" focused={focused} accent={AccentPalette[4]} />
           ),
         }}
       />
@@ -172,7 +158,7 @@ export default function TabLayout() {
           title: t('tabProfile'),
           tabBarActiveTintColor: AccentPalette[3],
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="person" filledName="person.fill" focused={focused} color={focused ? AccentPalette[3] : theme.tabIconDefault} />
+            <TabIcon name="person" filledName="person.fill" focused={focused} accent={AccentPalette[3]} />
           ),
         }}
       />

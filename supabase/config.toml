@@ -447,3 +447,6 @@ enabled = true
 # x-cron-secret header instead of a JWT — so JWT verification must stay off.
 [functions.sync-subcategories]
 verify_jwt = false
+
+[functions.enrich-books]
+verify_jwt = false

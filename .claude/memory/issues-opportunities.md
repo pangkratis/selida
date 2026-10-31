@@ -221,6 +221,17 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   recommendations and `bookStats`, unlike the two purely-diagnostic tables.
 
 ### 0k. `books`/`ingestion_cursor` RLS let any signed-up user vandalize the catalog — FIXED (2026-09-21)
+- **2026-10-31 update — overwrite hole closed (step 1, migration_35):** INSERT/UPDATE stayed open to
+  any signed-in user (book-details upserts on every list save), so anyone could rewrite any book's
+  title/description/cover via REST. Now BEFORE triggers on `books` act only for direct API calls
+  (current_user authenticated/anon) by non-admins: UPDATE silently keeps the old row (live app's
+  upsert still succeeds, no release needed); INSERT is allowed but popularity → 0, syncedSub /
+  syncedContributors → false, createdAt → now. Admins, service role, dashboard and SECURITY DEFINER
+  functions are untouched (helper `fn_caller_is_admin()`). Tested as a user and an admin, rolled back.
+  **Still open (step 2, needs an app release):** users can insert fake NEW books (zero popularity,
+  visible in search / recent lists). Fix: save books through a server function that takes only the
+  Biblionet id and fetches the data itself, then drop the INSERT policy. Also fixes book-details'
+  upsert resetting createdAt and forcing source='biblionet' on existing rows.
 - Found asking "cross-check before we build" — unrelated to what triggered the check. **Confirmed
   live, not just read from policy text**, same standard as the 2026-09-19 audit: created two
   disposable throwaway accounts with no relationship to each other. Account A inserted a
@@ -538,3 +549,5 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
 
 - (2026-10-23) tied_books went 3,039 -> 3,199 after migration_31; check what the metric counts and whether the remaining ties matter.
 - (2026-10-23) Table bloat on `books` and `book_genres` (dead tuples >> live); autovacuum last ran 10-03 / 10-19. Slows offset-based paging; consider vacuum from the dashboard.
+
+- (2026-10-31) Book tags pilot findings: DONE — dropped `pace` and `style`, added `early-modern` period. enrich-books job is deployed but disabled until an Anthropic API key + credits exist.

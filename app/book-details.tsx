@@ -2,6 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { AccentPalette, clamp, Colors, Spacing, mixHex, roundedFont } from '@/constants/theme';
 import { Book } from '@/constants/types';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { BookTag, fetchBookTags, groupTags, tagLabel } from '@/services/book-tags';
 import { logError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { logUserActivity } from '../services/userActivity';
 import { useSession } from './ctx';
 
@@ -34,8 +35,8 @@ export default function BookDetailsScreen() {
     const [status, setStatus] = useState<string | null>(null);
     const [coverVisible, setCoverVisible] = useState(false);
     const [genres, setGenres] = useState<BookGenre[]>([]);
+    const [tags, setTags] = useState<BookTag[]>([]);
     const { width } = useWindowDimensions();
-    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         if (!user?.uid || !book?.id) return;
@@ -77,6 +78,16 @@ export default function BookDetailsScreen() {
             .then(({ data }) => {
                 setGenres((data ?? []).map((row: any) => row.genres).filter(Boolean));
             });
+    }, [book?.id]);
+
+    // Mood / themes / setting tags (book_tags). Most books have none yet — the
+    // daily enrichment job works through the synced catalog — so the card just
+    // stays hidden until a book has some.
+    useEffect(() => {
+        if (!book?.id) return;
+        fetchBookTags(book.id)
+            .then(setTags)
+            .catch(e => void logError(e, 'book-details/fetchBookTags'));
     }, [book?.id]);
 
     if (!book) {
@@ -168,6 +179,17 @@ export default function BookDetailsScreen() {
 
     const heroTint = mixHex(theme.background, accent, colorScheme === 'dark' ? 0.12 : 0.08);
 
+    const isGreek = i18n.language.startsWith('el');
+    const grouped = groupTags(tags);
+    const tagRows = [
+        { key: 'mood', label: t('bookTagsMood'), tags: grouped.mood },
+        { key: 'theme', label: t('bookTagsThemes'), tags: grouped.theme },
+        { key: 'experience', label: t('bookTagsExperience'), tags: grouped.experience },
+        { key: 'storytelling', label: t('bookTagsStyle'), tags: grouped.storytelling },
+    ].filter(row => row.tags.length > 0);
+    const hasTags = tagRows.length > 0 || grouped.setting.length > 0 || grouped.trueStory;
+    const tagTint = mixHex(theme.surface, accent, colorScheme === 'dark' ? 0.22 : 0.12);
+
     // Hero cover: clamped to screen width rather than a bare fixed size — at a
     // flat 140px it's ~44% of a small phone's width but only ~33% of a large
     // phone's, visibly shrinking/growing the hero's prominence at the extremes.
@@ -191,7 +213,9 @@ export default function BookDetailsScreen() {
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} nestedScrollEnabled={true}>
 
                 {/* ── Hero Zone ─────────────────────────────────── */}
-                <View style={[styles.hero, { backgroundColor: heroTint, paddingTop: insets.top + 16 }]}>
+                {/* The sheet stops at 92% height (see _layout.tsx), below the status bar, so
+                    only room for the grabber is needed, not the top safe-area inset. */}
+                <View style={[styles.hero, { backgroundColor: heroTint, paddingTop: 20 }]}>
                     {/* Close */}
                     <TouchableOpacity
                         onPress={() => router.back()}
@@ -291,6 +315,49 @@ export default function BookDetailsScreen() {
                         </TouchableOpacity>
                     )}
                 </View>
+
+                {/* ── Mood & themes ─────────────────────────────── */}
+                {hasTags && (
+                    <View style={[styles.card, { backgroundColor: theme.surface }]}>
+                        <View style={[styles.cardHeader, { backgroundColor: theme.background, borderBottomColor: theme.border }]}>
+                            <Ionicons name="sparkles-outline" size={17} color={accent} />
+                            <ThemedText style={[styles.cardTitle, { color: theme.text }]}>{t('bookTagsTitle')}</ThemedText>
+                        </View>
+                        <View style={[styles.cardBody, styles.tagsBody]}>
+                            {grouped.trueStory && (
+                                <View style={[styles.trueStory, { backgroundColor: tagTint }]}>
+                                    <Ionicons name="ribbon-outline" size={14} color={accent} />
+                                    <ThemedText style={[styles.trueStoryText, { color: theme.text }]}>{t('bookTagsTrueStory')}</ThemedText>
+                                </View>
+                            )}
+                            {grouped.setting.length > 0 && (
+                                <View style={styles.tagSection}>
+                                    <ThemedText style={[styles.tagSectionLabel, { color: theme.secondary }]}>{t('bookTagsSetting')}</ThemedText>
+                                    <View style={styles.settingLine}>
+                                        <Ionicons name="location-outline" size={15} color={accent} />
+                                        <ThemedText style={[styles.settingText, { color: theme.text }]}>
+                                            {grouped.setting.map(tag => tagLabel(tag, isGreek)).join(' · ')}
+                                        </ThemedText>
+                                    </View>
+                                </View>
+                            )}
+                            {tagRows.map(row => (
+                                <View key={row.key} style={styles.tagSection}>
+                                    <ThemedText style={[styles.tagSectionLabel, { color: theme.secondary }]}>{row.label}</ThemedText>
+                                    <View style={styles.tagChips}>
+                                        {row.tags.map(tag => (
+                                            <View key={tag.slug} style={[styles.tagChip, { backgroundColor: tagTint }]}>
+                                                <ThemedText style={[styles.tagChipText, { color: theme.text }]}>
+                                                    {tagLabel(tag, isGreek).replace(/ /g, '\u00A0')}
+                                                </ThemedText>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
 
                 {/* ── Description ───────────────────────────────── */}
                 <View style={[styles.card, { backgroundColor: theme.surface }]}>
@@ -508,6 +575,26 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     chipText: { fontSize: 13, fontWeight: '600' },
+
+    // Mood & themes
+    tagsBody: { gap: 14 },
+    tagSection: { gap: 7 },
+    tagSectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
+    tagChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+    tagChip: { borderRadius: 999, paddingVertical: 5, paddingHorizontal: 11 },
+    tagChipText: { fontSize: 13, fontWeight: '600' },
+    settingLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    settingText: { flex: 1, fontSize: 14, fontWeight: '600', lineHeight: 20 },
+    trueStory: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        gap: 6,
+        borderRadius: 999,
+        paddingVertical: 5,
+        paddingHorizontal: 11,
+    },
+    trueStoryText: { fontSize: 13, fontWeight: '700' },
 
     // Description
     description: {

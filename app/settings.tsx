@@ -527,6 +527,12 @@ export default function SettingsScreen() {
                             iconColor={AccentPalette[3]}
                             label={t('settingsBookTriage')}
                             onPress={() => router.push('/book-triage')}
+                        />
+                        <Row
+                            icon="pricetags-outline"
+                            iconColor={AccentPalette[4]}
+                            label={t('settingsBookTags')}
+                            onPress={() => router.push('/book-tags-admin')}
                             last
                         />
                     </Section>
