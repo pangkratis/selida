@@ -551,3 +551,5 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
 - (2026-10-23) Table bloat on `books` and `book_genres` (dead tuples >> live); autovacuum last ran 10-03 / 10-19. Slows offset-based paging; consider vacuum from the dashboard.
 
 - (2026-10-31) Book tags pilot findings: DONE — dropped `pace` and `style`, added `early-modern` period. enrich-books job is deployed but disabled until an Anthropic API key + credits exist.
+
+- (2026-10-31) FOLLOW-UP ~2026-11-14: use book tags in recommendations. Not used yet — get_recommendations still scores genres, subject headings, authors, popularity. Wait until most synced books are tagged (~1,000/day; ~16k backlog on 2026-10-31). Plan: per-user tag profile from readingList books (completed > reading > wishlist, implied tags half), overlap bonus on candidates (theme + mood strongest, setting less, experience least; untagged books neutral, no penalty), tag-based reason line ("dark, reflective books about memory"), start with a small weight and check with test accounts. Database-only change, no app release needed.
