@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Selida</title>
+<meta name="description" content="Selida — ανακάλυψε ελληνικά βιβλία και κράτα το ημερολόγιο της ανάγνωσής σου. Discover Greek books and track your reading.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  :root {
+    --bg: #fbf7f0;
+    --surface: #ffffff;
+    --text: #2d3a2d;
+    --text-secondary: #5b6b5b;
+    --border: #e6ede6;
+    --accent: #2d8fd5;
+    --accent-soft: rgba(45, 143, 213, 0.1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1c18;
+      --surface: #2c2820;
+      --text: #f2f9f3;
+      --text-secondary: #b7c2b7;
+      --border: #3d4a3d;
+      --accent: #6bb3ea;
+      --accent-soft: rgba(107, 179, 234, 0.14);
+    }
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nunito', ui-rounded, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 64px 24px 80px; }
+  header { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+  .mark { width: 92px; height: auto; }
+  h1 { font-size: 40px; line-height: 1.1; font-weight: 800; letter-spacing: -0.8px; margin: 0; }
+  .tagline { font-size: 18px; color: var(--text-secondary); margin: 0; max-width: 40ch; text-wrap: balance; }
+  .cta {
+    display: inline-block; margin-top: 10px; padding: 12px 22px; border-radius: 999px;
+    background: var(--accent); color: #fff; font-weight: 700; text-decoration: none;
+  }
+  .cta:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 3px; }
+  section { margin-top: 48px; display: grid; gap: 14px; }
+  .feature {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px;
+  }
+  .feature h2 { font-size: 16px; margin: 0 0 4px; }
+  .feature p { margin: 0; color: var(--text-secondary); font-size: 15px; }
+  .en { margin-top: 48px; padding-top: 28px; border-top: 1px solid var(--border); color: var(--text-secondary); font-size: 15px; }
+  .en h2 { color: var(--text); font-size: 17px; margin: 0 0 6px; }
+  footer {
+    margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border);
+    display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: center; font-size: 14px;
+  }
+  footer a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <img class="mark" src="selida-mark.png" alt="" width="1040" height="600">
+    <h1>Selida</h1>
+    <p class="tagline">Ανακάλυψε ελληνικά βιβλία, φτιάξε τις λίστες σου και κράτα το ημερολόγιο της ανάγνωσής σου.</p>
+    <a class="cta" href="https://play.google.com/store/apps/details?id=com.selida.app">Διαθέσιμο στο Google Play</a>
+  </header>
+
+  <section aria-label="Τι κάνει η εφαρμογή">
+    <div class="feature">
+      <h2>Προτάσεις για σένα</h2>
+      <p>Βιβλία που ταιριάζουν στα είδη και στα θέματα που διαβάζεις, από έναν κατάλογο με πάνω από 180.000 ελληνικούς τίτλους.</p>
+    </div>
+    <div class="feature">
+      <h2>Οι λίστες σου</h2>
+      <p>Θέλω να το διαβάσω, Διαβάζω, Διάβασα — όλα τα βιβλία σου σε ένα σημείο.</p>
+    </div>
+    <div class="feature">
+      <h2>Χρόνος ανάγνωσης</h2>
+      <p>Χρονόμετρο για κάθε συνεδρία και πρόοδος για κάθε βιβλίο που διαβάζεις.</p>
+    </div>
+  </section>
+
+  <div class="en" lang="en">
+    <h2>About Selida</h2>
+    Selida is a book discovery and reading tracker app for Greek books. Browse and search the catalog,
+    get personalized recommendations, keep wishlist, reading and finished lists, and time your reading
+    sessions. Signing in with Google is used only to create and access your Selida account.
+  </div>
+
+  <footer>
+    <a href="privacy.html">Πολιτική απορρήτου / Privacy policy</a>
+    <a href="delete-account.html">Διαγραφή λογαριασμού / Delete account</a>
+    <a href="mailto:pangkratis@gmail.com">Επικοινωνία / Contact</a>
+  </footer>
+</main>
+</body>
+</html>
