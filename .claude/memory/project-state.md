@@ -1549,9 +1549,17 @@ INSERT/UPDATE, the biblionet-proxy quota-exhaustion vector), in `issues-opportun
 **Read that before touching `books` RLS or the catalog-ingestion screen again.**
 
 ### Current state, verified live (not assumed)
-- **Privacy policy is live**: `https://pangkratis.github.io/selida/privacy.html` (HTTP 200,
-  confirmed via curl) — GitHub Pages, no workflow file needed (repo-settings "deploy from
-  branch"). This is the URL to paste into Play Console's store listing.
+- **Website on own domain (2026-11-03)**: `https://selida.me/` (home), `/privacy.html`,
+  `/delete-account.html` — GitHub Pages from `docs/` (deploy from branch, `docs/CNAME` =
+  selida.me). Domain bought at Papaki; DNS: 4 × A @ → 185.199.108–111.153, `www` CNAME →
+  pangkratis.github.io, TXT @ google-site-verification (Search Console Domain property); Papaki
+  mail records (MX, imap/pop/smtp/autoconfig, SPF, DMARC) left untouched. Old
+  `pangkratis.github.io/selida/...` URLs 301-redirect to selida.me. Own domain was needed because
+  Google OAuth brand verification rejects github.io home pages. Separate repo
+  `pangkratis/pangkratis.github.io` exists only for the earlier Search Console attempt (can be
+  deleted). Pending: Enforce HTTPS in repo Settings → Pages once the cert is issued; update
+  Google Branding (home/privacy URLs, authorized domain selida.me) and Play Console privacy /
+  account-deletion URLs to selida.me.
 - **App icons**: all present and correctly sized — `icon.png` 1024×1024, Android adaptive icon
   layers (foreground/background/monochrome) at 512×512/512×512/432×432, favicon 48×48.
 - **Package identity**: `com.selida.app`, consistent iOS/Android, set in `app.json`.
