@@ -9,7 +9,28 @@ export type ProfileGenre = {
     books?: number;
 };
 
+/** The reader type, built and saved by get_reader_profile (migration 41). */
+export type ReaderTypeResult = {
+    genre: string;
+    noun_en: string;
+    noun_el: string;
+    of_en: string;
+    of_el: string;
+    tagline_en: string;
+    tagline_el: string;
+    /** Ionicons name. */
+    icon: string;
+    /** 'tag:<theme slug>' or 'genre:<genre slug>'. */
+    flavour: string;
+};
+
+export type ProfileMood = { slug: string; label_en: string; label_el: string };
+
 export type ReaderProfile = {
+    type: ReaderTypeResult | null;
+    /** Where the type came from: the user's books, or (too few books) their onboarding picks. */
+    source: 'books' | 'picks' | null;
+    moods: ProfileMood[];
     genres: ProfileGenre[];
     genre_count: number;
     genre_books: number;
@@ -22,7 +43,7 @@ export type ReaderProfile = {
     top_author: string | null;
 };
 
-/** The signed-in user's genre mix and reading stats (sql/migration_39_reader_profile.sql). */
+/** The signed-in user's reader type, genre mix, moods and reading stats (migrations 39 + 41). */
 export async function fetchReaderProfile(): Promise<ReaderProfile> {
     const { data, error } = await supabase.rpc('get_reader_profile');
     if (error) throw error;

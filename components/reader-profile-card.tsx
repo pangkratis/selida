@@ -1,19 +1,20 @@
 import { ThemedText } from '@/components/themed-text';
-import { buildReaderType } from '@/constants/reader-types';
 import { caps } from '@/constants/text';
 import { AccentPalette, BorderRadius, Colors, Spacing, mixHex, roundedFont } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logError } from '@/services/errorLog';
-import { ProfileGenre, ReaderProfile, fetchReaderProfile } from '@/services/reader-profile';
+import { ReaderProfile, fetchReaderProfile } from '@/services/reader-profile';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-// Below this many genre-tagged books the mix is too thin to mean much, so the
-// card uses the onboarding picks instead (when there are any).
-const MIN_BOOKS_FOR_MIX = 3;
+// The reader type itself is chosen and named in the database
+// (get_reader_profile, migration 41; names editable in reader_archetypes /
+// reader_flavours). This card only shows it.
 const MIX_SLICES = 3;
+
+type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 type Props = {
     /** Changes whenever the reading list reloads, so the card refreshes with it. */
@@ -37,9 +38,15 @@ export default function ReaderProfileCard({ refreshKey }: Props) {
 
     const view = useMemo(() => {
         if (!profile) return null;
-        const fromBooks = profile.genre_books >= MIN_BOOKS_FOR_MIX || profile.preferred_genres.length === 0;
-        const source: ProfileGenre[] = fromBooks ? profile.genres : profile.preferred_genres;
-        const type = buildReaderType(source.map(g => g.slug), isGreek);
+        const fromBooks = profile.source !== 'picks';
+        const rt = profile.type;
+        const type = rt ? {
+            title: `${isGreek ? rt.noun_el : rt.noun_en} ${isGreek ? rt.of_el : rt.of_en}`,
+            tagline: isGreek ? rt.tagline_el : rt.tagline_en,
+            // An icon name edited in the dashboard might not exist — fall back to a book.
+            icon: (rt.icon in Ionicons.glyphMap ? rt.icon : 'book') as IconName,
+        } : null;
+        const moods = (profile.moods ?? []).map(m => isGreek ? m.label_el : m.label_en);
 
         // Genre mix: top slices + "other", as shares of the total score.
         const total = profile.genres.reduce((sum, g) => sum + (g.score ?? 0), 0);
@@ -52,7 +59,7 @@ export default function ReaderProfileCard({ refreshKey }: Props) {
             }))
             : [];
         const other = 1 - slices.reduce((sum, s) => sum + s.share, 0);
-        return { fromBooks, type, slices, other };
+        return { fromBooks, type, moods, slices, other };
     }, [profile, isGreek]);
 
     if (!profile || !view) return null;
@@ -95,6 +102,18 @@ export default function ReaderProfileCard({ refreshKey }: Props) {
                                 </ThemedText>
                             </View>
                         </View>
+
+                        {view.moods.length > 0 && (
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
+                                {view.moods.map(mood => (
+                                    <View key={mood} style={{ borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: mixHex(theme.surface, accent, colorScheme === 'dark' ? 0.22 : 0.1) }}>
+                                        <ThemedText style={{ fontSize: 12.5, fontWeight: '600', fontFamily: roundedFont('600'), color: theme.text }}>
+                                            {mood}
+                                        </ThemedText>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
 
                         {view.slices.length > 0 && (
                             <View style={{ marginTop: 16 }}>
