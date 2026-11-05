@@ -36,7 +36,8 @@ function mapBiblionetTitle(item: BiblionetTitle): Book | null {
         id: String(item.TitlesID),
         title: item.Title ?? 'Unknown Title',
         authors: item.Writer ? [item.Writer] : ['Unknown Author'],
-        coverUrl: item.CoverImage ? `${COVER_BASE}${item.CoverImage}` : null,
+        // Biblionet's blank placeholder counts as no cover, so the app shows its own fallback.
+        coverUrl: item.CoverImage && !item.CoverImage.includes('/placeholders/') ? `${COVER_BASE}${item.CoverImage}` : null,
         publishedYear: item.CurrentPublishDate ? item.CurrentPublishDate.substring(0, 4) : null,
         isbn,
         isbn10,

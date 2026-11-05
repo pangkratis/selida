@@ -26,6 +26,8 @@ import { supabase } from './supabaseConfig';
 const SUB_BATCH = 900;
 const COVER_BASE = 'https://www.biblionet.gr';
 const PER_PAGE = 100;
+// Biblionet's stand-in for "no cover" (/assets/images/placeholders/blank_page_cover.jpg).
+const isBlankCover = (path: unknown) => String(path ?? '').includes('/placeholders/');
 
 // No hardcoded year floor — the crawl goes back as far as Biblionet still
 // has books. Stops once this many consecutive MONTHS (not pages — a
@@ -190,7 +192,7 @@ export async function runCatalogIngestion(): Promise<IngestionResult | null> {
         // book_contributors tables, independent of this Writer string, and
         // runs against every book with syncedContributors=false (the column
         // default for every new row) regardless of what's in books.authors.
-        const saveable = items.filter(item => !!item.CoverImage && !!item.TitlesID && !!item.Summary);
+        const saveable = items.filter(item => !!item.CoverImage && !isBlankCover(item.CoverImage) && !!item.TitlesID && !!item.Summary);
         console.log(`[Ingestion] ${saveable.length}/${items.length} have cover + TitlesID + description`);
 
         let newCount = 0;

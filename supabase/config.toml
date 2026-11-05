@@ -450,3 +450,6 @@ verify_jwt = false
 
 [functions.enrich-books]
 verify_jwt = false
+
+[functions.ingest-month]
+verify_jwt = false
