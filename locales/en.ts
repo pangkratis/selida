@@ -60,7 +60,11 @@ const en = {
   signupPasswordWeak: 'Weak password',
   signupPasswordMedium: 'Could be stronger',
   signupPasswordStrong: 'Strong password',
-  signupLegal: 'By continuing you agree to our Terms & Privacy Policy.',
+  legalPrefix: 'By continuing, you agree to our ',
+  legalTerms: 'Terms of Use',
+  legalMiddle: ' and acknowledge that you have read our ',
+  legalPrivacy: 'Privacy Policy',
+  legalSuffix: '.',
 
   // Home
   homeGreetingMorning: 'Good Morning',

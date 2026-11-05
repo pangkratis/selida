@@ -60,7 +60,11 @@ const el = {
   signupPasswordWeak: 'Αδύναμος κωδικός',
   signupPasswordMedium: 'Θα μπορούσε να είναι καλύτερος',
   signupPasswordStrong: 'Δυνατός κωδικός',
-  signupLegal: 'Συνεχίζοντας αποδέχεσαι τους Όρους Χρήσης και την Πολιτική Απορρήτου.',
+  legalPrefix: 'Συνεχίζοντας, αποδέχεσαι τους ',
+  legalTerms: 'Όρους Χρήσης',
+  legalMiddle: ' και επιβεβαιώνεις ότι διάβασες την ',
+  legalPrivacy: 'Πολιτική Απορρήτου',
+  legalSuffix: '.',
 
   // Home
   homeGreetingMorning: 'Καλημέρα',

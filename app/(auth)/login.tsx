@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import LegalNotice from '@/components/legal-notice';
 import { useTranslation } from 'react-i18next';
 import {
     Alert,
@@ -239,6 +240,9 @@ export default function LoginScreen() {
                                     </Text>
                                 </TouchableOpacity>
                             </View>
+
+                            {/* Legal line last, under the account switch link. */}
+                            <LegalNotice style={{ marginTop: Spacing.lg }} />
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>

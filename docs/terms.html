@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<title>Selida Terms of Use</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  :root {
+    --bg: #fbf7f0;
+    --surface: #ffffff;
+    --surface-2: #f3ede1;
+    --text: #2d3a2d;
+    --text-secondary: #5b6b5b;
+    --border: #e6ede6;
+    --accent: #2d8fd5;
+    --accent-soft: rgba(45, 143, 213, 0.1);
+    --accent-soft-strong: rgba(45, 143, 213, 0.18);
+    --mono-tint: #7a8a7a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1f1c18;
+      --surface: #2c2820;
+      --surface-2: #262319;
+      --text: #f2f9f3;
+      --text-secondary: #b7c2b7;
+      --border: #3d4a3d;
+      --accent: #6bb3ea;
+      --accent-soft: rgba(107, 179, 234, 0.14);
+      --accent-soft-strong: rgba(107, 179, 234, 0.22);
+      --mono-tint: #8fa08f;
+    }
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Open Runde', ui-rounded, -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono {
+    font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .wrap {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  header.doc-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    padding-bottom: 40px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mark { width: 68px; height: auto; }
+  h1 {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .meta {
+    font-size: 12.5px;
+    color: var(--mono-tint);
+    letter-spacing: 0.02em;
+  }
+  .lede {
+    max-width: 52ch;
+    color: var(--text-secondary);
+    font-size: 15px;
+    margin: 4px 0 0;
+  }
+
+  nav.toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 48px;
+  }
+  nav.toc .toc-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+    display: block;
+  }
+  nav.toc ol {
+    margin: 0;
+    padding: 0 0 0 1.1em;
+    columns: 2;
+    column-gap: 24px;
+  }
+  nav.toc li { margin-bottom: 6px; break-inside: avoid; }
+  nav.toc a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  nav.toc a:hover, nav.toc a:focus-visible { color: var(--accent); text-decoration: underline; }
+
+  section {
+    margin-bottom: 40px;
+    scroll-margin-top: 24px;
+  }
+  section h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  section h2 .num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  section p { margin: 0 0 12px; font-size: 15px; }
+  section p:last-child { margin-bottom: 0; }
+  section ul { margin: 0 0 12px; padding-left: 1.2em; font-size: 15px; }
+  section li { margin-bottom: 6px; }
+  section li:last-child { margin-bottom: 0; }
+  strong { font-weight: 700; }
+  a { color: var(--accent); }
+
+  .callout {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-soft-strong);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 14px;
+  }
+  .callout .callout-label {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .callout p { margin: 0; color: var(--text); }
+
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    margin: 8px 0 16px;
+  }
+  table.data-table th, table.data-table td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.data-table th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    font-weight: 700;
+  }
+  .table-wrap { overflow-x: auto; }
+
+  footer.doc-foot {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+
+  @media (max-width: 480px) {
+    nav.toc ol { columns: 1; }
+    h1 { font-size: 25px; }
+  }
+</style>
+<link rel="stylesheet" href="fonts/open-runde.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&display=swap">
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="doc-head">
+    <img class="mark" src="selida-mark.png" alt="Selida" width="1040" height="600">
+    <h1>Terms of Use</h1>
+    <p class="lede">The rules for using Selida: what you can expect from us, and what we ask of you.</p>
+    <p class="meta mono">Effective 5 November 2026</p>
+  </header>
+
+  <nav class="toc" aria-label="Table of contents">
+    <span class="toc-label">On this page</span>
+    <ol>
+      <li><a href="#agreement">Agreement</a></li>
+      <li><a href="#account">Your account</a></li>
+      <li><a href="#use">Using Selida</a></li>
+      <li><a href="#catalog">Book information</a></li>
+      <li><a href="#recommendations">Recommendations</a></li>
+      <li><a href="#feedback">Your feedback</a></li>
+      <li><a href="#availability">Availability &amp; changes</a></li>
+      <li><a href="#ending">Ending your use</a></li>
+      <li><a href="#disclaimer">Disclaimer</a></li>
+      <li><a href="#liability">Limitation of liability</a></li>
+      <li><a href="#law">Governing law</a></li>
+      <li><a href="#contact">Contact us</a></li>
+    </ol>
+  </nav>
+
+  <section id="agreement">
+    <h2><span class="num">01</span>Agreement</h2>
+    <p>These terms apply when you use the Selida app and website. By creating an account or signing in, you agree to them. How we handle your personal information is described separately in our <a href="privacy.html">Privacy Policy</a>.</p>
+    <div class="callout">
+      <span class="callout-label">In short</span>
+      <p>Selida is a free app for discovering books and tracking your reading. Use it for yourself, be fair to the service and other people, and we'll do our best to keep it running well.</p>
+    </div>
+  </section>
+
+  <section id="account">
+    <h2><span class="num">02</span>Your account</h2>
+    <ul>
+      <li>You need to be at least 13 years old to use Selida.</li>
+      <li>Give accurate information when you sign up, and keep your password to yourself. You're responsible for what happens under your account.</li>
+      <li>An account is for one person. Don't create accounts for others or share yours.</li>
+      <li>You can delete your account at any time in Settings, or through our <a href="delete-account.html">account deletion page</a>.</li>
+    </ul>
+  </section>
+
+  <section id="use">
+    <h2><span class="num">03</span>Using Selida</h2>
+    <p>Selida is for your personal, non-commercial use. Please don't:</p>
+    <ul>
+      <li>copy, collect or scrape the catalog or other data from Selida, by hand or with automated tools;</li>
+      <li>try to access other people's accounts or data, or parts of the service you're not meant to reach;</li>
+      <li>overload, disrupt or work around the security of the app or its servers;</li>
+      <li>reverse engineer the app, except where the law allows it;</li>
+      <li>use Selida to break the law or to send anything abusive through the feedback form.</li>
+    </ul>
+  </section>
+
+  <section id="catalog">
+    <h2><span class="num">04</span>Book information</h2>
+    <p>Book details such as titles, authors, descriptions and covers come from Greek book catalogs (mainly Biblionet) and from publishers. Covers, descriptions and other book content belong to their authors, publishers and other rights holders, and are shown in Selida only to help you find books. Some mood and theme labels are suggested automatically and may not match every reader's view. We work to keep the information correct, but it may be incomplete or out of date.</p>
+  </section>
+
+  <section id="recommendations">
+    <h2><span class="num">05</span>Recommendations</h2>
+    <p>Recommendations, your reader type and similar features are based on the books you save and read. They're suggestions to help you discover books, not promises that you'll like them.</p>
+  </section>
+
+  <section id="feedback">
+    <h2><span class="num">06</span>Your feedback</h2>
+    <p>If you send us feedback or ideas, we may use them to improve Selida without owing you anything for them. Thank you — it genuinely helps.</p>
+  </section>
+
+  <section id="availability">
+    <h2><span class="num">07</span>Availability &amp; changes</h2>
+    <p>Selida is free. We may add, change or remove features, and the service may sometimes be unavailable, for example during maintenance. We may also stop offering Selida; if we do, we'll try to give notice in the app first.</p>
+  </section>
+
+  <section id="ending">
+    <h2><span class="num">08</span>Ending your use</h2>
+    <p>You can stop using Selida and delete your account at any time. We may suspend or close an account that seriously or repeatedly breaks these terms, or to protect the service or other people.</p>
+  </section>
+
+  <section id="disclaimer">
+    <h2><span class="num">09</span>Disclaimer</h2>
+    <p>Selida is provided "as is" and "as available". As far as the law allows, we make no promises that it will always be available, free of errors, or that the book information is complete and accurate.</p>
+  </section>
+
+  <section id="liability">
+    <h2><span class="num">10</span>Limitation of liability</h2>
+    <p>As far as the law allows, we are not responsible for indirect or unforeseeable loss arising from your use of Selida. Nothing in these terms limits liability that cannot be limited by law, or your rights as a consumer.</p>
+  </section>
+
+  <section id="law">
+    <h2><span class="num">11</span>Governing law</h2>
+    <p>These terms are governed by the laws of Greece. If you live in the European Union, you also keep the protection of the mandatory consumer laws of the country where you live. If we change these terms in a meaningful way, we'll update the date at the top of this page; continuing to use Selida after that means you accept the new terms.</p>
+  </section>
+
+  <section id="contact">
+    <h2><span class="num">12</span>Contact us</h2>
+    <p>Questions about these terms? Reach us at <a href="mailto:pangkratis@gmail.com">pangkratis@gmail.com</a>.</p>
+  </section>
+
+  <footer class="doc-foot">
+    <p class="mono">Selida — Terms of Use — v1.0 · <a href="privacy.html">Privacy Policy</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

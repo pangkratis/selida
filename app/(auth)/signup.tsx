@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
+import LegalNotice from '@/components/legal-notice';
 import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
@@ -291,10 +292,6 @@ export default function SignUpScreen() {
                 </Text>
               </TouchableOpacity>
 
-              <Text style={{ fontSize: 11.5, lineHeight: 17, color: theme.secondary, textAlign: 'center', marginTop: Spacing.md, fontFamily: roundedFont('500') }}>
-                {t('signupLegal')}
-              </Text>
-
               {/* Login Link */}
               <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: Spacing.lg }}>
                 <Text style={{ fontSize: 14, color: theme.secondary, fontFamily: roundedFont('500') }}>
@@ -306,6 +303,9 @@ export default function SignUpScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Legal line last, under the account switch link. */}
+              <LegalNotice style={{ marginTop: Spacing.lg }} />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
