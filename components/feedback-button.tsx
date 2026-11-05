@@ -1,5 +1,5 @@
 import { useSession } from '@/app/ctx';
-import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
+import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont, roundedWeight } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logError } from '@/services/errorLog';
 import { supabase } from '@/services/supabaseConfig';
@@ -134,7 +134,7 @@ export default function FeedbackButton() {
                         }}>
                             <Text style={{
                                 fontSize: 20,
-                                fontWeight: '700',
+                                fontWeight: roundedWeight('700'),
                                 color: theme.text,
                                 fontFamily: roundedFont('700'),
                             }}>
@@ -171,7 +171,7 @@ export default function FeedbackButton() {
                                 </Animated.View>
                                 <Text style={{
                                     fontSize: 18,
-                                    fontWeight: '700',
+                                    fontWeight: roundedWeight('700'),
                                     color: theme.text,
                                     fontFamily: roundedFont('700'),
                                     marginTop: Spacing.md,
@@ -244,7 +244,7 @@ export default function FeedbackButton() {
                                     ) : (
                                         <Text style={{
                                             fontSize: 16,
-                                            fontWeight: '700',
+                                            fontWeight: roundedWeight('700'),
                                             color: '#fff',
                                             fontFamily: roundedFont('700'),
                                         }}>

@@ -1,0 +1,6 @@
+/* Open Runde — rounded Inter (SIL OFL 1.1, see open-runde-license.txt).
+   Same font as the app on Android; covers Greek, unlike Nunito. */
+@font-face { font-family: 'Open Runde'; font-style: normal; font-weight: 400; font-display: swap; src: url(open-runde-regular.woff2) format('woff2'); }
+@font-face { font-family: 'Open Runde'; font-style: normal; font-weight: 500; font-display: swap; src: url(open-runde-medium.woff2) format('woff2'); }
+@font-face { font-family: 'Open Runde'; font-style: normal; font-weight: 600; font-display: swap; src: url(open-runde-semibold.woff2) format('woff2'); }
+@font-face { font-family: 'Open Runde'; font-style: normal; font-weight: 700 900; font-display: swap; src: url(open-runde-bold.woff2) format('woff2'); }

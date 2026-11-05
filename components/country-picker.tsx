@@ -1,5 +1,5 @@
 import { COUNTRIES, Country } from '@/constants/countries';
-import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
+import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont, roundedWeight } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
@@ -65,7 +65,7 @@ export default function CountryPicker({ visible, onClose, onSelect, selectedCode
                 }}>
                     <Text style={{
                         fontSize: 20,
-                        fontWeight: '700',
+                        fontWeight: roundedWeight('700'),
                         color: theme.text,
                         fontFamily: roundedFont('700'),
                     }}>
@@ -149,7 +149,7 @@ export default function CountryPicker({ visible, onClose, onSelect, selectedCode
                                 <Text style={{
                                     flex: 1,
                                     fontSize: 16,
-                                    fontWeight: isSelected ? '700' : '400',
+                                    fontWeight: roundedWeight(isSelected ? '700' : '400'),
                                     color: isSelected ? accent : theme.text,
                                     fontFamily: roundedFont(isSelected ? '700' : '400'),
                                 }}>

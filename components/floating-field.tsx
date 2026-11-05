@@ -1,4 +1,4 @@
-import { BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
+import { BorderRadius, Colors, Spacing, roundedFont, roundedWeight } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
@@ -38,7 +38,7 @@ export function FloatingFieldShell({
         }}>
             <Text style={{
                 fontSize: 10.5,
-                fontWeight: '700',
+                fontWeight: roundedWeight('700'),
                 fontFamily: roundedFont('700'),
                 letterSpacing: 1,
                 textTransform: 'uppercase',

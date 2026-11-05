@@ -207,6 +207,6 @@ const styles = StyleSheet.create({
     wordmark: {
         fontFamily: roundedFont('800'),
         fontWeight: '800',
-        letterSpacing: -1,
+        letterSpacing: -0.4,
     },
 });

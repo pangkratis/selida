@@ -1,7 +1,7 @@
 // app/(auth)/login.tsx
 import AuthBackgroundCircles from '@/components/auth-background-circles';
 import FloatingField from '@/components/floating-field';
-import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
+import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont, roundedWeight } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logEvent } from '@/services/analytics';
 import { logError } from '@/services/errorLog';
@@ -124,13 +124,13 @@ export default function LoginScreen() {
                                     style={{ width: 76, height: 76 * (600 / 1040) }}
                                     contentFit="contain"
                                 />
-                                <Text style={{ fontSize: 26, fontWeight: '700', letterSpacing: -0.3, color: theme.text, marginTop: Spacing.sm, fontFamily: roundedFont('700') }}>
+                                <Text style={{ fontSize: 26, fontWeight: roundedWeight('700'), letterSpacing: -0.3, color: theme.text, marginTop: Spacing.sm, fontFamily: roundedFont('700') }}>
                                     Selida
                                 </Text>
                             </View>
 
                             {/* Headline */}
-                            <Text style={{ fontSize: 32, fontWeight: '800', lineHeight: 36, color: theme.text, letterSpacing: -0.5, fontFamily: roundedFont('800') }}>
+                            <Text style={{ fontSize: 32, fontWeight: roundedWeight('800'), lineHeight: 36, color: theme.text, letterSpacing: -0.5, fontFamily: roundedFont('800') }}>
                                 {t('loginTitle')}
                             </Text>
                             <Text style={{ fontSize: 14.5, color: theme.secondary, marginTop: Spacing.sm, fontFamily: roundedFont('500') }}>
@@ -160,7 +160,7 @@ export default function LoginScreen() {
                             </View>
 
                             <TouchableOpacity onPress={openReset} style={{ alignSelf: 'flex-end', marginTop: Spacing.sm }}>
-                                <Text style={{ fontSize: 12.5, fontWeight: '600', color: theme.secondary, fontFamily: roundedFont('600') }}>
+                                <Text style={{ fontSize: 12.5, fontWeight: roundedWeight('600'), color: theme.secondary, fontFamily: roundedFont('600') }}>
                                     {t('loginForgotPassword')}
                                 </Text>
                             </TouchableOpacity>
@@ -190,7 +190,7 @@ export default function LoginScreen() {
                                 disabled={isLoading}
                                 activeOpacity={0.85}
                             >
-                                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: roundedFont('700') }}>
+                                <Text style={{ color: '#fff', fontSize: 16, fontWeight: roundedWeight('700'), fontFamily: roundedFont('700') }}>
                                     {isLoading ? t('loginLoading') : t('loginButton')}
                                 </Text>
                             </TouchableOpacity>
@@ -223,7 +223,7 @@ export default function LoginScreen() {
                                 activeOpacity={0.85}
                             >
                                 <Ionicons name="logo-google" size={18} color={theme.text} />
-                                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', fontFamily: roundedFont('700') }}>
+                                <Text style={{ color: theme.text, fontSize: 16, fontWeight: roundedWeight('700'), fontFamily: roundedFont('700') }}>
                                     {isGoogleLoading ? t('authGoogleLoading') : t('authGoogleButton')}
                                 </Text>
                             </TouchableOpacity>
@@ -234,7 +234,7 @@ export default function LoginScreen() {
                                     {t('loginNoAccount')}{' '}
                                 </Text>
                                 <TouchableOpacity onPress={() => router.push('/signup')}>
-                                    <Text style={{ fontSize: 14, fontWeight: '700', color: accent, fontFamily: roundedFont('700') }}>
+                                    <Text style={{ fontSize: 14, fontWeight: roundedWeight('700'), color: accent, fontFamily: roundedFont('700') }}>
                                         {t('loginCreate')}
                                     </Text>
                                 </TouchableOpacity>
@@ -261,7 +261,7 @@ export default function LoginScreen() {
                             shadowRadius: 20,
                             elevation: 10,
                         }}>
-                            <Text style={{ fontSize: 18, fontWeight: '700', color: theme.text, fontFamily: roundedFont('700') }}>
+                            <Text style={{ fontSize: 18, fontWeight: roundedWeight('700'), color: theme.text, fontFamily: roundedFont('700') }}>
                                 {t('loginResetTitle')}
                             </Text>
                             <Text style={{ fontSize: 13.5, color: theme.secondary, marginTop: 6, marginBottom: Spacing.md, fontFamily: roundedFont('500') }}>
@@ -293,7 +293,7 @@ export default function LoginScreen() {
                                     style={{ flex: 1, height: 48, borderRadius: BorderRadius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.background }}
                                     activeOpacity={0.8}
                                 >
-                                    <Text style={{ fontSize: 15, fontWeight: '600', color: theme.secondary, fontFamily: roundedFont('600') }}>
+                                    <Text style={{ fontSize: 15, fontWeight: roundedWeight('600'), color: theme.secondary, fontFamily: roundedFont('600') }}>
                                         {t('cancel')}
                                     </Text>
                                 </TouchableOpacity>
@@ -303,7 +303,7 @@ export default function LoginScreen() {
                                     style={{ flex: 1, height: 48, borderRadius: BorderRadius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: accent, opacity: resetSending ? 0.7 : 1 }}
                                     activeOpacity={0.85}
                                 >
-                                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff', fontFamily: roundedFont('700') }}>
+                                    <Text style={{ fontSize: 15, fontWeight: roundedWeight('700'), color: '#fff', fontFamily: roundedFont('700') }}>
                                         {t('loginResetSend')}
                                     </Text>
                                 </TouchableOpacity>

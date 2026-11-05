@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
     lineHeight: 40,
     fontWeight: '800',
     fontFamily: roundedFont('800'),
-    letterSpacing: -1,
+    letterSpacing: -0.4,
     marginBottom: 6,
   },
   headerSubtitle: {

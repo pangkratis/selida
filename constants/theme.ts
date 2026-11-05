@@ -3,7 +3,7 @@
  * Cheerful mobile app design using bright pastel baby colors with leaf green as the main theme.
  */
 
-import { Platform } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 
 // Primary Green Palette
 // Ranges from #F2F9F3 (lightest) to #2F6E38 (darkest)
@@ -158,42 +158,64 @@ export const Fonts = Platform.select({
     mono: 'ui-monospace',
   },
   default: {
-    heading: 'Nunito_400Regular',
-    body: 'Nunito_400Regular',
-    rounded: 'Nunito_400Regular',
+    heading: 'OpenRunde-Regular',
+    body: 'OpenRunde-Regular',
+    rounded: 'OpenRunde-Regular',
     mono: 'monospace',
   },
   web: {
-    heading: 'Nunito_400Regular',
-    body: 'Nunito_400Regular',
-    rounded: 'Nunito_400Regular',
+    heading: 'OpenRunde-Regular',
+    body: 'OpenRunde-Regular',
+    rounded: 'OpenRunde-Regular',
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, monospace",
   },
 });
 
 /**
- * Map of Nunito font family names per weight for Android/web.
- * Only includes weights that are actually loaded in app/_layout.tsx (400–800).
- * Any unmapped weight falls back to Nunito_400Regular via roundedFont().
+ * Open Runde (a rounded Inter, SIL OFL — assets/fonts/open-runde-license.txt)
+ * per weight for Android/web. Chosen because it is the closest free match to
+ * iOS's SF Pro Rounded AND covers Greek; the previous font (Nunito) had no
+ * Greek glyphs, so all Greek text fell back to Roboto.
+ * Loaded in app/_layout.tsx. Open Runde has no 800 weight — it maps to Bold.
  */
-const NUNITO_WEIGHT_MAP: Record<string, string> = {
-  '400': 'Nunito_400Regular',
-  '500': 'Nunito_500Medium',
-  '600': 'Nunito_600SemiBold',
-  '700': 'Nunito_700Bold',
-  '800': 'Nunito_800ExtraBold',
-  'normal': 'Nunito_400Regular',
-  'bold': 'Nunito_700Bold',
+const ROUNDED_WEIGHT_MAP: Record<string, string> = {
+  '400': 'OpenRunde-Regular',
+  '500': 'OpenRunde-Medium',
+  '600': 'OpenRunde-Semibold',
+  '700': 'OpenRunde-Bold',
+  '800': 'OpenRunde-Bold',
+  '900': 'OpenRunde-Bold',
+  'normal': 'OpenRunde-Regular',
+  'bold': 'OpenRunde-Bold',
+};
+
+/** Font files to load with expo-font's useFonts (app/_layout.tsx). */
+export const ROUNDED_FONT_FILES = {
+  'OpenRunde-Regular': require('../assets/fonts/open-runde-regular.otf'),
+  'OpenRunde-Medium': require('../assets/fonts/open-runde-medium.otf'),
+  'OpenRunde-Semibold': require('../assets/fonts/open-runde-semibold.otf'),
+  'OpenRunde-Bold': require('../assets/fonts/open-runde-bold.otf'),
 };
 
 /**
  * Returns the correct rounded fontFamily for the given weight.
  * - iOS: always `'ui-rounded'` (SF Pro Rounded — the OS handles weight natively)
- * - Android / Web: the matching named Nunito font file
+ * - Android / Web: the matching named Open Runde font file
  */
 export function roundedFont(weight: string = '400'): string {
   if (Platform.OS === 'ios') return 'ui-rounded';
-  return NUNITO_WEIGHT_MAP[weight] ?? 'Nunito_400Regular';
+  return ROUNDED_WEIGHT_MAP[weight] ?? 'OpenRunde-Regular';
+}
+
+/**
+ * The fontWeight to pair with roundedFont(). On Android each weight is its own
+ * font file, so the weight must NOT be passed again — Android would fake-bold
+ * the already-bold file and draw it wider than it measured (Greek headings
+ * wrapped and lost words). ThemedText does this itself; use this for plain
+ * <Text>/<TextInput> styles: `{ fontWeight: roundedWeight('700'), fontFamily: roundedFont('700') }`.
+ */
+export function roundedWeight<W extends TextStyle['fontWeight']>(weight: W): W | 'normal' {
+  return Platform.OS === 'android' ? 'normal' : weight;
 }
 
 /* ── Color Utilities ─────────────────────────────────────────────── */

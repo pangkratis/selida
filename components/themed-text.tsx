@@ -1,6 +1,6 @@
 import { roundedFont } from '@/constants/theme';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { StyleSheet, Text, type TextProps } from 'react-native';
+import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -30,6 +30,15 @@ export function ThemedText({
   const fontWeight = flatStyle?.fontWeight ?? typePresetWeight ?? '400';
   const fontFamily = roundedFont(String(fontWeight));
 
+  // The 'default' preset's lineHeight (24) is too short for big text, which
+  // then gets its descenders cut off (the "y" in "My Library"). When a caller
+  // makes the text bigger without giving a lineHeight, size the line to fit.
+  const fontSize = typeof flatStyle?.fontSize === 'number' ? flatStyle.fontSize : undefined;
+  const autoLineHeight =
+    fontSize !== undefined && flatStyle?.lineHeight === undefined && fontSize * 1.25 > 24
+      ? { lineHeight: Math.ceil(fontSize * 1.25) }
+      : undefined;
+
   return (
     <Text
       style={[
@@ -40,6 +49,13 @@ export function ThemedText({
         type === 'subtitle' ? styles.subtitle : undefined,
         type === 'link' ? styles.link : undefined,
         style,
+        autoLineHeight,
+        // Android: each weight is its own font file (OpenRunde-Bold…), so the
+        // weight is already in the font. Passing fontWeight as well makes
+        // Android fake-bold it again, drawing text wider than it measured —
+        // Greek headings wrapped and lost their last word. Keep the family,
+        // drop the weight.
+        Platform.OS === 'android' ? { fontFamily, fontWeight: 'normal' as const } : undefined,
       ]}
       {...rest}
     />

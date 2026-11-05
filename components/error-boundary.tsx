@@ -1,4 +1,4 @@
-import { BorderRadius, Colors, roundedFont, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, roundedFont, roundedWeight, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logError } from '@/services/errorLog';
 import { Ionicons } from '@expo/vector-icons';
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: roundedWeight('700'),
     // Explicit lineHeight — large bold text renders a taller glyph box than
     // fontSize implies on iOS and creeps into whatever sits above it.
     lineHeight: 28,
@@ -125,14 +125,14 @@ const styles = StyleSheet.create({
   },
   body: {
     fontSize: 15,
-    fontWeight: '400',
+    fontWeight: roundedWeight('400'),
     lineHeight: 22,
     textAlign: 'center',
     maxWidth: 320,
   },
   debug: {
     fontSize: 12,
-    fontWeight: '400',
+    fontWeight: roundedWeight('400'),
     lineHeight: 17,
     textAlign: 'center',
     opacity: 0.7,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   },
   buttonLabel: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: roundedWeight('700'),
     color: '#FFFFFF',
   },
 });

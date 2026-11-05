@@ -3,7 +3,7 @@ import AuthBackgroundCircles from '@/components/auth-background-circles';
 import CountryPicker from '@/components/country-picker';
 import FloatingField, { FloatingFieldShell } from '@/components/floating-field';
 import { Country, getCountryByCode } from '@/constants/countries';
-import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont } from '@/constants/theme';
+import { AccentPalette, BorderRadius, Colors, Spacing, roundedFont, roundedWeight } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { logEvent } from '@/services/analytics';
 import { logError } from '@/services/errorLog';
@@ -151,13 +151,13 @@ export default function SignUpScreen() {
                   style={{ width: 76, height: 76 * (600 / 1040) }}
                   contentFit="contain"
                 />
-                <Text style={{ fontSize: 26, fontWeight: '700', letterSpacing: -0.3, color: theme.text, marginTop: Spacing.sm, fontFamily: roundedFont('700') }}>
+                <Text style={{ fontSize: 26, fontWeight: roundedWeight('700'), letterSpacing: -0.3, color: theme.text, marginTop: Spacing.sm, fontFamily: roundedFont('700') }}>
                   Selida
                 </Text>
               </View>
 
               {/* Headline */}
-              <Text style={{ fontSize: 30, fontWeight: '800', lineHeight: 34, color: theme.text, letterSpacing: -0.5, fontFamily: roundedFont('800') }}>
+              <Text style={{ fontSize: 30, fontWeight: roundedWeight('800'), lineHeight: 34, color: theme.text, letterSpacing: -0.5, fontFamily: roundedFont('800') }}>
                 {t('signupTitle')}
               </Text>
               <Text style={{ fontSize: 14.5, color: theme.secondary, marginTop: Spacing.sm, fontFamily: roundedFont('500') }}>
@@ -208,7 +208,7 @@ export default function SignUpScreen() {
                           />
                         ))}
                       </View>
-                      <Text style={{ fontSize: 11, fontWeight: '600', color: strengthColor, marginTop: 6, fontFamily: roundedFont('600') }}>
+                      <Text style={{ fontSize: 11, fontWeight: roundedWeight('600'), color: strengthColor, marginTop: 6, fontFamily: roundedFont('600') }}>
                         {t(strength.labelKey)}
                       </Text>
                     </View>
@@ -253,7 +253,7 @@ export default function SignUpScreen() {
                 disabled={isLoading}
                 activeOpacity={0.85}
               >
-                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700', fontFamily: roundedFont('700') }}>
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: roundedWeight('700'), fontFamily: roundedFont('700') }}>
                   {isLoading ? t('signupLoading') : t('signupButton')}
                 </Text>
               </TouchableOpacity>
@@ -286,7 +286,7 @@ export default function SignUpScreen() {
                 activeOpacity={0.85}
               >
                 <Ionicons name="logo-google" size={18} color={theme.text} />
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', fontFamily: roundedFont('700') }}>
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: roundedWeight('700'), fontFamily: roundedFont('700') }}>
                   {isGoogleLoading ? t('authGoogleLoading') : t('authGoogleButton')}
                 </Text>
               </TouchableOpacity>
@@ -301,7 +301,7 @@ export default function SignUpScreen() {
                   {t('signupHaveAccount')}{' '}
                 </Text>
                 <TouchableOpacity onPress={() => router.back()}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: accent, fontFamily: roundedFont('700') }}>
+                  <Text style={{ fontSize: 14, fontWeight: roundedWeight('700'), color: accent, fontFamily: roundedFont('700') }}>
                     {t('signupLogin')}
                   </Text>
                 </TouchableOpacity>

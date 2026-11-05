@@ -1,11 +1,5 @@
-import {
-  Nunito_400Regular,
-  Nunito_500Medium,
-  Nunito_600SemiBold,
-  Nunito_700Bold,
-  Nunito_800ExtraBold,
-  useFonts,
-} from '@expo-google-fonts/nunito';
+import { ROUNDED_FONT_FILES } from '@/constants/theme';
+import { useFonts } from 'expo-font';
 import { DialogProvider } from '@/components/app-dialog';
 import ErrorBoundary from '@/components/error-boundary';
 import SplashOverlay from '@/components/splash-overlay';
@@ -218,13 +212,7 @@ function Root() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    Nunito_400Regular,
-    Nunito_500Medium,
-    Nunito_600SemiBold,
-    Nunito_700Bold,
-    Nunito_800ExtraBold,
-  });
+  const [fontsLoaded, fontError] = useFonts(ROUNDED_FONT_FILES);
 
   // The saved light/dark choice is read before the first render so the app
   // never flashes the wrong theme.

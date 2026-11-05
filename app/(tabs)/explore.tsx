@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     fontSize: 38,
     fontWeight: '800',
     lineHeight: 44,
-    letterSpacing: -1.1,
+    letterSpacing: -0.5,
   },
   searchCard: {
     flexDirection: 'row',
