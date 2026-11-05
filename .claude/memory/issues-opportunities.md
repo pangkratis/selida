@@ -292,6 +292,31 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   service_role key, which this tool doesn't have. Harmless (no real data attached); remove via
   Dashboard → Authentication → Users whenever convenient, alongside the earlier leftover pair.
 
+### 0m. Greek typography + labels (found 2026-11-05)
+- **FIXED 2026-11-05 — switched Android/Web to Open Runde** (has Greek, closest to SF Pro
+  Rounded). Original finding: **Nunito has no Greek glyphs** (Google Fonts subsets: latin, cyrillic, vietnamese). On
+  Android/Web all Greek text falls back to the system font (Roboto), so the rounded look only
+  exists in English — in a Greek-first app. Fix = a Greek-capable rounded face (e.g. M PLUS
+  Rounded 1c / Comfortaa) or accept the fallback. iOS ui-rounded covers Greek.
+- **Greek uppercase keeps accents** (e.g. book-details language chip "ΕΛΛΗΝΙΚΆ") wherever `textTransform: 'uppercase'` is used (~6 places
+  outside onboarding). onboarding.tsx has a `caps()` helper; could move to a shared util.
+- **Dark mode logo**: selida-mark.png's dark base nearly disappears on the dark background
+  (onboarding, login, signup). Needs a light-base variant.
+- **Genre display names**: some `genres.name_el` are genitive forms that read oddly as chips
+  ("Φαντασίας", "Τρόμου") — consider "Φαντασία", "Τρόμος".
+- FIXED 2026-11-05: big headline letterSpacing loosened for Open Runde (Home name -1→-0.4,
+  Explore headline -1.1→-0.5, splash wordmark -1→-0.4); native splash PNGs re-rendered with
+  Open Runde Bold (same 230px/61px box, needs a native build to show); docs/ website self-hosts
+  Open Runde (docs/fonts/, woff2 + license) instead of Nunito from Google Fonts.
+
+### 0l. Monthly ingestion follow-ups (2026-11-03)
+- Added `ingest-month` (migration 38). Open items: (a) no admin view of `ingest_months` — could
+  be a card in Settings → Admin; (b) new books sort last in the subcategory sync queue
+  (popularity 0), so they stay without genre/tags for a while — consider giving recent books a
+  boost in `fn_subsync_next_batch`; (c) the saveable rule + mapping are duplicated in
+  `services/catalog-ingestion.ts` and the Edge Function — change both together;
+  (d) `books_search_latin_missing_idx` can be dropped (backfill finished).
+
 ### 1. Debug log in bookStats.ts — FIXED (2026-06-25)
 - bookStats.ts is now no-op stubs; all stat logic moved to Postgres triggers
 - Debug log is gone along with the function bodies

@@ -110,6 +110,37 @@
   dedicated button was intentionally removed** per this request; backspace/keyboard clear still
   works.
 
+### Profile — Completed shelf is horizontal, newest first (2026-11-05, migration 40)
+- Finished books now use the same horizontal `ReadingCard` shelf as Currently Reading (the old
+  vertical `FinishedRow` list and `EmptyDashedRow` were removed), sorted by `completedAt` desc,
+  with see-all dots → `/book-list?type=user-completed` (book-list orders user lists by
+  completedAt/addedAt desc).
+- `readingList."completedAt"` is set by trigger `trg_reading_list_completed_at`
+  (status → completed sets now(), leaving completed clears it); back-filled from the latest
+  `userActivity.mark_completed`, else addedAt. **The app selects completedAt — migration_40
+  MUST be applied before this app code runs anywhere, or the profile list query fails.**
+  Applied 2026-11-05; all 27 existing finished rows back-filled. Verified on the emulator.
+
+### Profile — Reader type + stats card (2026-11-05, migration 39)
+- `components/reader-profile-card.tsx` — white surface card with the same radius/shadow as the
+  counts card (was blue-tinted; changed on request 2026-11-05), placed right under the hero (before Currently Reading),
+  refreshes whenever the reading list reloads (`refreshKey={readingList}`).
+- Data: RPC `get_reader_profile()` (security definer, auth.uid() only, granted to authenticated):
+  top-5 genres weighted finished×3 / reading×2 / wishlist×1 × book_genres.confidence ×1.5 if
+  primary, with names; genre_count, genre_books, preferred_genres (onboarding picks, with
+  names), finished/reading/wishlist, pages_read (finished pageCount + progress share of reading),
+  seconds_read (max of readingSessions sum vs readingList totals), top_author (≥2 books).
+- Reader type (`constants/reader-types.ts`): noun from the top genre + "of …" genitive phrase
+  from the second ("Bookworm of Verses" / "Βιβλιοφάγος των στίχων"), tagline + icon from the top
+  genre. Greek nouns are gender-neutral or fixed-gender so nothing agrees with the user's gender.
+  Under 3 genre-tagged books → uses onboarding picks, with a "based on the topics you picked"
+  note; nothing at all → empty prompt.
+- Literature dominates almost everyone (catalog is 44k literature), so the second genre is what
+  makes types differ. Genre-mix bar = top 3 + Other. Stat tiles (pages, time, genres, favourite
+  author) were built then REMOVED the same day at the user's request (too much space, not
+  important) — the RPC still returns those fields if they're wanted again.
+- Shared `caps()` (accent-free uppercase) now lives in `constants/text.ts`.
+
 ### Profile (profile.tsx) — Rebuilt as hero + per-status shelves (2026-09-02, iterated same day)
 Adapted from a Claude Design HTML mock ("Library / Profile — design reference (3b)", option 3b)
 — structural layout only, NOT the mock's literal colors/fonts (Quicksand/Fraunces, hardcoded
@@ -194,7 +225,36 @@ hex). Uses the app's own theme tokens throughout.
   segmented control in a `Row`'s `rightSlot`** — the label has no minimum-width protection against
   it; stack it below instead if the control needs more than ~80-100px.
 
-### Onboarding (onboarding.tsx) — Complete (updated 2026-06-25)
+### Onboarding (onboarding.tsx) — Step flow (redesigned 2026-11-05)
+- **Current structure** (supersedes the single-page description below): 4 screens in one route,
+  `step` state 0–3. Top bar: Back (steps 1–3; Android hardware back also steps back via
+  BackHandler) + "Step N of 3" label + 4-segment progress bar coloured with the step accent.
+  Sticky bottom button per step. Each progress segment keeps its own step colour (blue, yellow,
+  purple, green). Copy kept deliberately short (user: long texts won't be read).
+  0 Welcome — logo (no background), one short paragraph, 3 compact cards previewing the steps,
+  "Takes about a minute", "Let's start".
+  1 Topics — same genres+subcategories data, now a wrapped chip grid (not horizontal rows),
+  counter pill "N of 3 chosen" + Clear; button disabled "Choose N more" until 3 picks.
+  2 Books (optional) — numbered how-to (search → tap → "Save to Wishlist"), search, your books,
+  popular shelf; button "Next" or "Skip this step".
+  3 Recap — topics + book count with Change/Add links back to those steps, "After this" list,
+  "Go to my home screen" → completeOnboarding (unchanged write + analytics).
+- Strings: `ob*` keys in locales (old onboardingTitle/Subtitle/Finish/... removed). There is NO
+  screen to edit preferredGenres after onboarding — copy deliberately doesn't promise one.
+- Text on filled accents (chips, buttons) is always white, incl. yellow — user's choice
+  (2026-11-05). Next buttons are descriptive: "Next: add your books" / "Next: review your choices".
+  Books how-to is two numbered lines with no box.
+- Labels in caps use `caps()` (strips accents before uppercasing — Greek capitals drop the
+  tonos; `textTransform: 'uppercase'` leaves ΒΉΜΑ). Verified dark mode + Greek on emulator
+  2026-11-05.
+- Colour helpers in the file: `inkOf()` (darkened accent for
+  small text), `track` (empty segment / disabled). **Gotcha**: light `theme.background` is
+  8-digit `#fefbf8ff`, which `mixHex` can't parse (returns the base unchanged) — mix from
+  `theme.surface` instead.
+- Tested on the Android emulator through all 4 steps (redirect temporarily disabled locally,
+  then restored); finish not pressed on the real account.
+
+### Onboarding — previous single-page version (2026-06-25, historical)
 - PageHeader + subtitle + "What do you enjoy reading?" chip strip
 - Subcategory chips: horizontal ScrollView, sizes vary by popularity (font 12–17px) from `get_popular_subcategories` RPC
 - Selected chips: filled AccentPalette[0]; unselected: outlined with AccentPalette[0]+'15'
@@ -1036,7 +1096,9 @@ machine) at the exact sizes `app.json` declares:
   composite "mark + Selida wordmark" lockups for the NATIVE splash specifically (the native
   splash config takes exactly one static image, no separate text field, so mark+name-below-it
   had to be pre-baked into one PNG). Generated with ImageMagick + the real bundled font at
-  `node_modules/@expo-google-fonts/nunito/800ExtraBold/Nunito_800ExtraBold.ttf`, text color
+  `node_modules/@expo-google-fonts/nunito/800ExtraBold/Nunito_800ExtraBold.ttf` (package removed
+  2026-11-05). **Re-rendered 2026-11-05 with `assets/fonts/open-runde-bold.otf`**: kept the mark
+  (rows 0–254), redrew the word at height 61px centred at y=271 — same box as before, text color
   exactly `Colors.light.text` (`#2D3A2D`) / `Colors.dark.text` (`#F2F9F3`). Mark trimmed to
   420px working width, text scaled to ~230px (≈55% of mark width) for visual balance — if
   regenerating, re-derive that ratio rather than guessing a new pointsize. Both variants were
@@ -1646,4 +1708,28 @@ INSERT/UPDATE, the biblionet-proxy quota-exhaustion vector), in `issues-opportun
 - `fn_greeklish(text)` converts Greek and Latin text to one loose "Greeklish" spelling (η/ι/υ/ει/οι→i, ω/ο→o, αι→e, ου→u, θ→th/8, χ→h/ch/kh, ξ/x→ks, β/μπ/b→v, γκ/gk→g, ευ/eu→ev, double letters collapsed). `books.search_latin` = fn_greeklish(title + authors), set by the existing `fn_books_search_text` trigger; GIN trigram index `books_search_latin_trgm`.
 - `search_books` now matches search_text ILIKE (as typed) OR search_latin ILIKE greeklish(query) OR word-similarity ≥ 0.5 (queries ≥ 4 chars), ranked by the best of both, then popularity; limit capped at 200. Verified: "kazantzakis", "triantafillou", "evgenia fakinou", "bukowski", "mikri patrida" find the right books first. Greek spellings of foreign names (βόννεγκατ) only match if phonetically close.
 - **Incident:** the one-shot backfill (UPDATE of every book) wrote ~90k new row versions plus a lot of WAL in minutes and Supabase made the DB read-only for a while (app could read but not save; CLI couldn't log in). The project is on the **Pro plan** (so not the free 500 MB quota) — most likely the disk filled faster than Supabase's disk autoscaling, which can only grow every few hours. DB ~700 MB afterwards. **Never mass-update `books` in one go** — batch + VACUUM between batches.
-- Remaining ~95k rows are filled by pg_cron: `latin-backfill` (:00/:30, `fn_backfill_search_latin(1000)`, skips while DB > 760 MB) and `latin-backfill-vacuum` (:15/:45, `vacuum public.books`); both unschedule themselves when done (~2 days of running). Paused 2026-11-01 10:30 UTC at the user's request; one-shot cron job `latin-backfill-resume` re-activates both at 13:30 UTC the same day and unschedules itself. Partial index `books_search_latin_missing_idx` can be dropped afterwards.
+- Remaining ~95k rows are filled by pg_cron: `latin-backfill` (:00/:30, `fn_backfill_search_latin(1000)`, skips while DB > 760 MB) and `latin-backfill-vacuum` (:15/:45, `vacuum public.books`); both unschedule themselves when done (~2 days of running). Paused 2026-11-01 10:30 UTC at the user's request; one-shot cron job `latin-backfill-resume` re-activates both at 13:30 UTC the same day and unschedules itself. Partial index `books_search_latin_missing_idx` can be dropped afterwards. **Finished by 2026-11-03** (both jobs gone from cron.job); the index can be dropped now.
+
+### Monthly catalog ingestion — ingest-month (2026-11-03, migration 38)
+- Adds new Biblionet books automatically, month by month; the manual backward crawl and
+  `ingestion_cursor` (was at 2026/03 p3, last moved 2026-10-09) are untouched.
+- `ingest_months` (year, month PK; status queued|done, next_page, pages, found, added,
+  already_had, skipped, queued_at, done_at) — one row per month. `ingest_state` (single row:
+  enabled, daily_limit 80, requests_today, paused_until, running_since, last_result,
+  total_added). RLS on, no policies (service role only).
+- Cron `ingest-queue-monthly` ('0 3 1 * *') → `fn_ingest_queue_recent()` queues the month that
+  just ended AND re-queues the month before (Biblionet keeps adding a month's books for weeks;
+  re-check is cheap). Cron `ingest-run` ('*/10 * * * *', only when `fn_ingest_should_run()`) →
+  Edge Function `ingest-month` (vault `ingest_cron_secret` / secret INGEST_CRON_SECRET,
+  --no-verify-jwt): newest queued month first, ≤10 pages/run, 110 s budget, page of 100 ≈ 8 s;
+  a page with <100 items finishes the month. Inserts via upsert `ignoreDuplicates` on
+  biblionetId — existing books never touched. Same saveable rule (cover + TitlesID + Summary)
+  and mapping as `services/catalog-ingestion.ts` mapItem — keep both in sync. Both also skip Biblionet's blank placeholder cover (`/assets/images/placeholders/blank_page_cover.jpg`, matched on `/placeholders/`); `biblionet-api.ts` search results map it to `coverUrl: null` (app fallback cover). Biblionet failure
+  → pause 4 h.
+- Budget: subcategory sync uses 900/day of Biblionet's 1,000; this job keeps to 80.
+- Catch-up: Jan–Oct 2026 queued at creation (~10 pages/month → ~1–2 days). First test page
+  (Oct p1): 91 new, 6 already had, 3 skipped. New books have no genre until the subcategory sync
+  reaches them (popularity-ordered, so new books with 0 popularity come late).
+- Redo a month: `select fn_ingest_queue_month(2026, 5);` Pause: `update ingest_state set enabled=false;`
+  No admin screen yet — check progress with `select * from ingest_months order by year desc, month desc`.
+
