@@ -1,0 +1,27 @@
+.claude/memory/issues-opportunities.md
+  s_d6d65f87308408::t_11bd0e2a760fce 295-300
+.claude/memory/project-state.md
+  s_d6d65f87308408::t_ef35a436807872 177-181
+  s_d6d65f87308408::t_a16721bc37abe2 144-156,160
+  s_d6d65f87308408::t_11bd0e2a760fce 157-159
+  s_d6d65f87308408::t_7844bce62bb783 161-176,182
+  s_d6d65f87308408::t_482f37c9f402b1 130-132
+  s_d6d65f87308408::t_fbfd292e401ad9 124-129,133-135
+  s_d6d65f87308408::t_a5ca164d4a5dbb 136-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "969a8f56aa900af06add1688bb6fdb6baf47ec5e",
+  "prompts": {},
+  "sessions": {
+    "s_d6d65f87308408": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c55f5ad6-63be-43de-8c10-c7691d946601",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "pangkratispapounidis <pangkratis.papounidis@instashop.ae>"
+    }
+  }
+}
