@@ -747,7 +747,9 @@ hex). Uses the app's own theme tokens throughout.
   Swipe right / ♥ = `priority` (sync first), swipe left / ✕ = `skip` ("not yet"), 🔖 = `review`
   (decide later), plus Undo (last 20). Vertical drag scrolls the card into a details view
   (description, categories, ISBN) — the pan uses `activeOffsetX` + `failOffsetY` so it doesn't
-  conflict. Counters: books without subcategories, in sync list, to review.
+  conflict. Counters: books without subcategories, in sync list, to review. Since 2026-11-05 the
+  first counter shows unsynced − sync list − not yet (books still to decide), computed in the app,
+  so it drops live with each ♥ / ✕ swipe; "to review" books are still counted in it.
 - Data: `book_triage` (one row per book: decision, decided_by, decided_at), admin-only RLS.
   RPCs (all check `fn_require_admin()`): `get_triage_deck(limit, exclude_ids)` (newest `publishedYear`
   first, then popularity, then newest added — migration_29, index `books_subsync_year_idx`;

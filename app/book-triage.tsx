@@ -332,7 +332,9 @@ export default function BookTriageScreen() {
       <View style={styles.counters}>
         <View style={[styles.counter, { backgroundColor: theme.surface }]}>
           <ThemedText style={[styles.counterText, { color: theme.secondary }]}>
-            {counts ? t('triageUnsynced', { count: fmt(counts.unsynced) as any }) : '…'}
+            {/* Books still to decide: the sync list and "not yet" books are subtracted
+                (their rows are removed once a book syncs, so they're always a subset). */}
+            {counts ? t('triageUnsynced', { count: fmt(Math.max(0, counts.unsynced - counts.inList - counts.skipped)) as any }) : '…'}
           </ThemedText>
         </View>
         <View style={[styles.counter, { backgroundColor: LIKE_COLOR + '22' }]}>
