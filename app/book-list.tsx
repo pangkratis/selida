@@ -40,11 +40,12 @@ function SkeletonFooter({ borderColor }: { borderColor: string }) {
     );
 }
 
-type ListType = 'recommendations' | 'trending' | 'user-reading' | 'user-wishlist';
+type ListType = 'recommendations' | 'trending' | 'user-reading' | 'user-wishlist' | 'user-completed';
 
-const USER_LIST_STATUS: Partial<Record<ListType, 'reading' | 'wishlist'>> = {
+const USER_LIST_STATUS: Partial<Record<ListType, 'reading' | 'wishlist' | 'completed'>> = {
     'user-reading': 'reading',
     'user-wishlist': 'wishlist',
+    'user-completed': 'completed',
 };
 
 export default function BookListScreen() {
@@ -80,7 +81,9 @@ export default function BookListScreen() {
                         .from('readingList')
                         .select('bookId')
                         .eq('userId', user.uid)
-                        .eq('status', userStatus);
+                        .eq('status', userStatus)
+                        // Finished books: most recently finished first (migration_40).
+                        .order(userStatus === 'completed' ? 'completedAt' : 'addedAt', { ascending: false, nullsFirst: false });
                     if (error) throw error;
                     const books = await Promise.all(
                         (rlData ?? []).map(async (row: any) => {

@@ -10,6 +10,7 @@ import { supabase } from "@/services/supabaseConfig";
 import { logUserActivity } from '@/services/userActivity';
 import { Ionicons } from '@expo/vector-icons';
 import FeedbackButton from '@/components/feedback-button';
+import ReaderProfileCard from '@/components/reader-profile-card';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -113,70 +114,6 @@ function EmptyDashedTile({ theme, text, width = 86 }: { theme: typeof Colors.lig
     );
 }
 
-function FinishedRow({ item, theme, onPress, onMenuPress }: {
-    item: ReadingListItem; theme: typeof Colors.light; onPress: () => void; onMenuPress: () => void;
-}) {
-    const { t } = useTranslation();
-    const dateLabel = item.addedAt
-        ? new Date(item.addedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
-        : '';
-    return (
-        <TouchableOpacity
-            onPress={onPress}
-            activeOpacity={0.85}
-            style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 14,
-                backgroundColor: theme.surface,
-                borderRadius: 18,
-                padding: 14,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.07,
-                shadowRadius: 6,
-                elevation: 2,
-            }}
-        >
-            <Image
-                source={{ uri: item.coverUrl ?? undefined }}
-                style={{ width: 68, height: 102, borderRadius: 10, backgroundColor: theme.border }}
-                contentFit="cover"
-            />
-            <View style={{ flex: 1 }}>
-                <ThemedText style={{ fontSize: 16, fontWeight: '700', fontFamily: roundedFont('700'), color: theme.text }} numberOfLines={1}>
-                    {item.title || 'Unknown Title'}
-                </ThemedText>
-                <ThemedText style={{ fontSize: 13.5, fontWeight: '500', fontFamily: roundedFont('500'), color: theme.secondary, marginTop: 4 }} numberOfLines={1}>
-                    {(item.authors?.join(', ') || 'Unknown Author')}
-                    {dateLabel ? ` · ${t('profileFinishedDate', { date: dateLabel })}` : ''}
-                </ThemedText>
-            </View>
-            <TouchableOpacity onPress={onMenuPress} style={{ padding: 8 }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="ellipsis-vertical" size={20} color={theme.icon} />
-            </TouchableOpacity>
-        </TouchableOpacity>
-    );
-}
-
-function EmptyDashedRow({ theme, text }: { theme: typeof Colors.light; text: string }) {
-    return (
-        <View style={{
-            borderRadius: 16,
-            borderWidth: 1.5,
-            borderStyle: 'dashed',
-            borderColor: theme.border,
-            paddingVertical: 20,
-            paddingHorizontal: Spacing.lg,
-            alignItems: 'center',
-        }}>
-            <ThemedText style={{ fontSize: 13, fontWeight: '500', fontFamily: roundedFont('500'), color: theme.secondary, textAlign: 'center' }}>
-                {text}
-            </ThemedText>
-        </View>
-    );
-}
-
 /* ── Main Screen ─────────────────────────────────────────────────── */
 
 export default function ProfileScreen() {
@@ -209,7 +146,7 @@ export default function ProfileScreen() {
         try {
             const { data: rlData, error } = await supabase
                 .from('readingList')
-                .select('bookId, status, progressPercentage, totalReadingTimeSeconds, addedAt, isReading')
+                .select('bookId, status, progressPercentage, totalReadingTimeSeconds, addedAt, completedAt, isReading')
                 .eq('userId', user.uid);
             if (error) throw error;
             const itemsWithDetails = await Promise.all(
@@ -254,7 +191,11 @@ export default function ProfileScreen() {
 
     const readingBooks = readingList.filter(item => item.status === 'reading');
     const wishlistBooks = readingList.filter(item => item.status === 'wishlist');
-    const finishedBooks = readingList.filter(item => item.status === 'completed');
+    // Most recently finished first (completedAt, set by a DB trigger; addedAt for safety).
+    const finishedAt = (item: ReadingListItem) => new Date(item.completedAt ?? item.addedAt ?? 0).getTime();
+    const finishedBooks = readingList
+        .filter(item => item.status === 'completed')
+        .sort((a, b) => finishedAt(b) - finishedAt(a));
 
     /* ── Navigation helper ─────────────────────────────────────── */
 
@@ -410,6 +351,9 @@ export default function ProfileScreen() {
 
                 {!loading && (
                     <>
+                        {/* ── Reader type + stats ───────────────── */}
+                        <ReaderProfileCard refreshKey={readingList} />
+
                         {/* ── Currently reading ─────────────────── */}
                         <View
                             style={{ marginTop: Spacing.lg }}
@@ -473,22 +417,28 @@ export default function ProfileScreen() {
                             style={{ marginTop: Spacing.lg }}
                             onLayout={(e) => { sectionY.current.finished = e.nativeEvent.layout.y; }}
                         >
-                            <ShelfHeader title={t('profileCompletedBooks')} theme={theme} />
-                            <View style={{ paddingHorizontal: Spacing.xl, gap: 12 }}>
-                                {finishedBooks.length === 0 ? (
-                                    <EmptyDashedRow theme={theme} text={t('profileNoFinishedHint')} />
-                                ) : (
-                                    finishedBooks.map((item) => (
-                                        <FinishedRow
+                            <ShelfHeader
+                                title={t('profileCompletedBooks')}
+                                theme={theme}
+                                onSeeAll={() => router.push({ pathname: '/book-list', params: { title: t('profileCompletedBooks'), type: 'user-completed' } })}
+                            />
+                            {finishedBooks.length === 0 ? (
+                                <View style={{ paddingHorizontal: Spacing.xl }}>
+                                    <EmptyDashedTile theme={theme} text={t('profileNoFinishedHint')} width={108} />
+                                </View>
+                            ) : (
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: Spacing.xl, gap: 14 }}>
+                                    {finishedBooks.map((item) => (
+                                        <ReadingCard
                                             key={item.bookId || item.id}
                                             item={item}
                                             theme={theme}
                                             onPress={() => navigateToBook(item)}
-                                            onMenuPress={() => setMenuItem(item)}
+                                            onLongPress={() => setMenuItem(item)}
                                         />
-                                    ))
-                                )}
-                            </View>
+                                    ))}
+                                </ScrollView>
+                            )}
                         </View>
                     </>
                 )}

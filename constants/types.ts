@@ -6,6 +6,8 @@ export interface ReadingListItem extends Partial<Book> {
     status: ReadingStatus;
     progressPercentage?: number;
     addedAt?: string | number;
+    /** Set by a DB trigger when the book is marked finished (migration_40). */
+    completedAt?: string | null;
     totalReadingTimeSeconds?: number;
 }
 
