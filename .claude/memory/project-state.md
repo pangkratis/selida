@@ -121,6 +121,65 @@
   MUST be applied before this app code runs anywhere, or the profile list query fails.**
   Applied 2026-11-05; all 27 existing finished rows back-filled. Verified on the emulator.
 
+### Terms of Use + legal line on auth screens (2026-11-05)
+- New `docs/terms.html` (selida.me/terms.html), same style as privacy.html, effective
+  5 Nov 2026, 12 sections (13+ age, personal use, no scraping, book info belongs to rights
+  holders, AI labels may be off, as-is, Greek law + EU consumer rights). DRAFT written by Claude —
+  user should have it reviewed. Linked from the home page footer.
+- `components/legal-notice.tsx`: "By continuing, you agree to our Terms of Use and acknowledge
+  that you have read our Privacy Policy." — both names tappable (expo-web-browser). On login and
+  signup it is the LAST element, below the "Don't have an account? / Already have one?" link
+  (user's call). Replaced the old plain `signupLegal` string.
+- Known gap: privacy.html still says "no social-login data sharing" although Google sign-in
+  exists (Google shares name + email) — needs an update.
+
+### Settings + catalog ingestion clean-up (2026-11-05)
+- Settings: "Delete account" is no longer a red row next to Sign out — it's a small grey
+  underlined link below the Session card (still confirms; spinner while deleting).
+- Catalog ingestion admin: the "Clear database" button, its handler, styles and
+  `clearBookDatabase()` / `deleteAllInTable*` in services/catalog-ingestion.ts are DELETED (it
+  wiped books, stats, activity, sessions and reading lists; no use, too dangerous). Older notes
+  mentioning it are historical.
+
+### Taste on every Home shelf (2026-11-05, migration 42)
+- `fn_user_taste(uid)` → (kind, key, w 0..1): genre (rarity-weighted ^-0.35 + picks + readerGenre
+  ×2), tag (theme/mood, rarity-weighted + readerFlavour theme ×2), author (top 6), language.
+  `fn_taste_affinity(uid, ids[])` → 0..1: tagged books 50% genre + 35% tag + 15% author;
+  untagged books 80% genre + 20% author (not punished for missing tags); −0.3 other language.
+- `get_shelf_books` (same signature, so the live app gets it without a release):
+  new = last 120 days pool (≤2000), only affinity ≥0.3 unless <12 match, score 0.8 aff + 0.2
+  recency; trending = top 500 by activity, 50/50 popularity/affinity; quick = top 1500 pool,
+  70/30; genre/subcategory = first 600 re-ranked 60/40, deeper pages old order; author
+  unchanged. No genre/tag taste → old ordering everywhere.
+- `fn_recommend_ids`: + cand_tag (books with the user's top 4 themes/moods, 600), + 20×tag_fit,
+  + 5 if in readerGenre, readerGenre ×2 in genre profile, match_reason 'theme'.
+- Tested in a rolled-back transaction 2026-11-05: 30–1850 ms per shelf (new is the slowest,
+  cold). Applied 2026-11-05, live for the current app. Seen on emulator: Recommended and Trending
+  both lead with the same Vonnegut books for Test User 1 (author affinity + those books are the
+  most-viewed among only ~5 users) — cross-shelf dedupe is an open follow-up.
+
+### Reader types v2 — distinctive genre + theme flavour, in the DB (2026-11-05, migration 41)
+- **Supersedes the v1 naming below.** `constants/reader-types.ts` is DELETED; names live in
+  `reader_archetypes` (genre_slug PK: noun/of/tagline en+el, Ionicons icon — 25 rows seeded
+  from v1) and `reader_flavours` (theme tag_slug PK: of en+el — 30 rows). Editable in the
+  dashboard, no release. RLS: read for anon/authenticated.
+- `get_reader_profile()` is now plpgsql VOLATILE and returns v1's fields + `type` (genre,
+  noun/of/tagline en+el, icon, flavour), `source` ('books'|'picks'), `moods` (top 3).
+  Noun = most distinctive genre with ≥2 books: score × (catalog share from genre_book_counts)^-0.35
+  (Literature is 81% of list books — v1 made everyone "Bookworm"). Flavour = strongest theme tag
+  (weighted by status × strength, also rarity-weighted) when ≥3 tagged books and theme in ≥2;
+  else next distinctive genre's phrase; else noun's own. <3 genre-tagged books → onboarding picks.
+- Saves the result on `users."readerGenre"`, `"readerFlavour"` ('tag:x'|'genre:x'),
+  `"readerTypeAt"` — only when it changed (users row has a realtime subscription in ctx.tsx).
+- Data that motivated it (2026-11-05): 57 list books, 46 Literature, 35 Literature-only; 47/57
+  have AI tags; Literature subcategories are just form + country ("Μυθιστόρημα", "Αμερικανική
+  πεζογραφία") — not used for the type.
+- Card shows mood chips under the title. Applied 2026-11-05. First results: "Bookworm of Big
+  Questions" (Pangkratis), "Bookworm of Battlefields" (Test User 1), "Bookworm of New
+  Beginnings", "Bookworm of Inner Worlds" (picks), "Team Spirit of Fairy Tales". Still mostly
+  Bookworm because these users' lists really are Literature-only (no 2nd genre with ≥2 books) —
+  variety comes from the theme flavour.
+
 ### Profile — Reader type + stats card (2026-11-05, migration 39)
 - `components/reader-profile-card.tsx` — white surface card with the same radius/shadow as the
   counts card (was blue-tinted; changed on request 2026-11-05), placed right under the hero (before Currently Reading),

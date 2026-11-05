@@ -292,6 +292,12 @@ couldn't. Four gaps, all now closed (`sql/migration_16_app_events.sql` + `servic
   service_role key, which this tool doesn't have. Harmless (no real data attached); remove via
   Dashboard → Authentication → Users whenever convenient, alongside the earlier leftover pair.
 
+### 0n. Same books on several Home shelves (found 2026-11-05)
+- Since migration 42 personalises Trending, it can repeat Recommended's top books (Test User 1:
+  Vonnegut on both). Options: pass Recommended's first page as excludes to Trending/New, or a
+  per-session "already shown" set in index.tsx. Bigger with more users? No — popularity spreads
+  out, but author affinity still pulls the same authors up.
+
 ### 0m. Greek typography + labels (found 2026-11-05)
 - **FIXED 2026-11-05 — switched Android/Web to Open Runde** (has Greek, closest to SF Pro
   Rounded). Original finding: **Nunito has no Greek glyphs** (Google Fonts subsets: latin, cyrillic, vietnamese). On
