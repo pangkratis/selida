@@ -541,30 +541,3 @@ export async function syncContributors(): Promise<ContributorSyncResult | null> 
         return { synced: 0, remaining: 0, error: String(err) };
     }
 }
-
-async function deleteAllInTable(tableName: string): Promise<number> {
-    const { count } = await supabase.from(tableName).delete({ count: 'exact' }).not('id', 'is', null);
-    return count ?? 0;
-}
-
-async function deleteAllInTableByPk(tableName: string, pkColumn: string): Promise<number> {
-    const { count } = await supabase.from(tableName).delete({ count: 'exact' }).not(pkColumn, 'is', null);
-    return count ?? 0;
-}
-
-export async function clearBookDatabase(): Promise<{ total: number }> {
-    if (!__DEV__) return { total: 0 };
-    let total = 0;
-    try {
-        // Order matters — foreign keys reference books
-        total += await deleteAllInTable('readingSessions');
-        total += await deleteAllInTable('userActivity');
-        total += await deleteAllInTable('readingList');
-        total += await deleteAllInTableByPk('bookStats', 'bookId');
-        total += await deleteAllInTableByPk('books', 'id');
-        console.log(`[Clear] Deleted ~${total} rows`);
-    } catch (err) {
-        console.error('[Clear] Error:', err);
-    }
-    return { total };
-}

@@ -546,17 +546,29 @@ export default function SettingsScreen() {
                         label={t('settingsSignOut')}
                         onPress={handleSignOut}
                         destructive
-                    />
-                    <Row
-                        icon="trash-outline"
-                        iconColor={theme.error}
-                        label={t('settingsDeleteAccount')}
-                        onPress={deletingAccount ? undefined : handleDeleteAccount}
-                        rightSlot={deletingAccount ? <ActivityIndicator size="small" color={theme.error} /> : undefined}
-                        destructive
                         last
                     />
                 </Section>
+
+                {/* Delete account: a small plain link, well away from Sign out, so it
+                    can't be hit by accident. It still asks for confirmation. */}
+                <View style={{ alignItems: 'center', marginTop: 8, marginBottom: Spacing.xl }}>
+                    {deletingAccount ? (
+                        <ActivityIndicator size="small" color={theme.secondary} />
+                    ) : (
+                        <TouchableOpacity onPress={handleDeleteAccount} hitSlop={8} accessibilityRole="button">
+                            <ThemedText style={{
+                                fontSize: 13,
+                                fontWeight: '500',
+                                fontFamily: roundedFont('500'),
+                                color: theme.secondary,
+                                textDecorationLine: 'underline',
+                            }}>
+                                {t('settingsDeleteAccount')}
+                            </ThemedText>
+                        </TouchableOpacity>
+                    )}
+                </View>
 
             </ScrollView>
 

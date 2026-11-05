@@ -1,7 +1,7 @@
 import { useSession } from '@/app/ctx';
 import { ThemedText } from '@/components/themed-text';
 import { AccentPalette, BorderRadius, Colors, roundedFont } from '@/constants/theme';
-import { ContributorSyncResult, IngestionResult, MassIngestionResult, SubSyncResult, clearBookDatabase, readCursor, resetCursor, runCatalogIngestion, runMassIngestion, syncContributors, syncSubcategories } from '@/services/catalog-ingestion';
+import { ContributorSyncResult, IngestionResult, MassIngestionResult, SubSyncResult, readCursor, resetCursor, runCatalogIngestion, runMassIngestion, syncContributors, syncSubcategories } from '@/services/catalog-ingestion';
 import { supabase } from '@/services/supabaseConfig';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
@@ -237,26 +237,6 @@ export default function CatalogIngestionScreen() {
     });
     fetchLatestBooks();
   }, [fetchLatestBooks]);
-
-  const handleClearDatabase = () => {
-    Alert.alert(
-      'Clear database',
-      'This will delete all books, stats, activity, sessions, and reading lists. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear everything', style: 'destructive',
-          onPress: async () => {
-            setIngestion(prev => ({ ...prev, status: 'running' }));
-            const { total } = await clearBookDatabase();
-            setIngestion(prev => ({ ...prev, status: 'idle', totalSaved: 0 }));
-            setBooks([]);
-            Alert.alert('Done', `Deleted ${total} documents.`);
-          },
-        },
-      ]
-    );
-  };
 
   const handleReset = async () => {
     await resetCursor();
@@ -605,17 +585,6 @@ export default function CatalogIngestionScreen() {
 
   const ListFooter = (
     <View>
-      <TouchableOpacity
-        onPress={handleClearDatabase}
-        disabled={ingestion.status === 'running' || massIngestion.status === 'running'}
-        style={[styles.clearButton, { borderColor: theme.error + '40' }]}
-      >
-        <Ionicons name="trash-outline" size={15} color={theme.error} />
-        <ThemedText style={[styles.clearButtonText, { color: theme.error, fontFamily: roundedFont('600') }]}>
-          Clear database
-        </ThemedText>
-      </TouchableOpacity>
-
       <View style={[styles.bottomAnchor, { paddingBottom: insets.bottom + 16 }]}>
         <ThemedText style={[styles.bottomText, { color: theme.secondary + '70', fontFamily: roundedFont('600') }]}>
           SELIDA · DEV INGESTION
@@ -803,19 +772,6 @@ const styles = StyleSheet.create({
   bookRowInfo: { flex: 1 },
   bookRowTitle: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
   bookRowMeta: { fontSize: 12 },
-  clearButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-    marginHorizontal: 24,
-    marginTop: 16,
-    marginBottom: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  clearButtonText: { fontSize: 14, fontWeight: '600' },
   bottomAnchor: { alignItems: 'center', paddingBottom: 8 },
   bottomText: { fontSize: 10, fontWeight: '600', letterSpacing: 2 },
 });
